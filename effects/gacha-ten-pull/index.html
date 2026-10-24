@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>十连抽卡动画 · 参考实现</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(ellipse at center,#1d1640 0%,#07050f 75%);color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;height:100vh;overflow:hidden;user-select:none}
+canvas#bg{position:fixed;inset:0;z-index:0}
+#ui{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px}
+h1{font-size:28px;letter-spacing:6px;text-shadow:0 0 12px #8a6cff}
+.btns{display:flex;gap:16px}
+button{padding:12px 28px;font-size:18px;border:none;border-radius:999px;cursor:pointer;color:#fff;background:linear-gradient(135deg,#7b5cff,#d14cff);box-shadow:0 0 18px #9b6bff88;transition:transform .15s}
+button:hover{transform:scale(1.06)}
+button.gold{background:linear-gradient(135deg,#ffb300,#ff6a00);box-shadow:0 0 18px #ffb30088}
+#stats{font-size:14px;opacity:.75}
+#stage{position:fixed;inset:0;z-index:3;display:none;align-items:center;justify-content:center}
+#grid{display:grid;grid-template-columns:repeat(5,120px);gap:18px;perspective:1000px}
+.card{width:120px;height:170px;position:relative;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.8,.2,1.2);cursor:pointer;opacity:0;transform:translateY(-60px) rotateY(0)}
+.card.in{opacity:1;transform:translateY(0) rotateY(0)}
+.card.flip{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:12px;backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.back{background:repeating-linear-gradient(45deg,#2a1f5c 0 10px,#33267a 10px 20px);border:2px solid #8a6cff;box-shadow:0 0 12px #6a4cff66}
+.back::after{content:"✦";font-size:40px;color:#b9a6ff}
+.front{transform:rotateY(180deg);border:3px solid;font-weight:bold}
+.front .ico{font-size:52px}
+.front .nm{font-size:14px;margin-top:8px}
+.front .st{font-size:12px;margin-top:4px}
+.r3 .front{background:linear-gradient(160deg,#1e3a6b,#122244);border-color:#4f8cff}
+.r4 .front{background:linear-gradient(160deg,#4a2477,#24123d);border-color:#c06bff;box-shadow:0 0 18px #c06bff}
+.r5 .front{background:linear-gradient(160deg,#7a4b00,#3a2200);border-color:#ffd24a;box-shadow:0 0 28px #ffcc33,0 0 60px #ff9900aa}
+.r5.flip::before{content:"";position:absolute;inset:-40px;border-radius:50%;background:conic-gradient(from 0deg,transparent,#ffd24a88,transparent 30%,#ffd24a88,transparent 60%,#ffd24a88,transparent);animation:spin 2s linear infinite;z-index:-1;filter:blur(6px)}
+.r4.glow .back{box-shadow:0 0 26px #c06bff,0 0 50px #c06bff}
+.r5.glow .back{box-shadow:0 0 30px #ffd24a,0 0 70px #ffaa00;border-color:#ffd24a;animation:pulse .5s ease-in-out infinite alternate}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{to{transform:scale(1.05)}}
+#flash{position:fixed;inset:0;z-index:5;background:radial-gradient(circle,#fff8d0,#ffcc33 40%,transparent 75%);opacity:0;pointer-events:none;transition:opacity .25s}
+#hint{position:fixed;bottom:30px;left:0;right:0;text-align:center;z-index:4;opacity:.7;font-size:14px}
+#result{position:fixed;inset:0;z-index:6;background:#05030cdd;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;backdrop-filter:blur(6px)}
+#result h2{font-size:30px;letter-spacing:4px}
+#rlist{display:grid;grid-template-columns:repeat(5,110px);gap:12px}
+.ri{padding:10px;border-radius:10px;text-align:center;border:2px solid}
+.ri .ico{font-size:32px}.ri div{font-size:12px;margin-top:4px}
+.ri.r3{border-color:#4f8cff;background:#122244}.ri.r4{border-color:#c06bff;background:#24123d}.ri.r5{border-color:#ffd24a;background:#3a2200;box-shadow:0 0 14px #ffcc33}
+#summary{font-size:16px}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div id="ui">
+  <h1>✦ 星辰祈愿 ✦</h1>
+  <div class="btns"><button id="one">单抽</button><button id="ten" class="gold">十连抽</button></div>
+  <div id="stats">累计 0 抽 · 距保底 90</div>
+</div>
+<div id="stage"><div id="grid"></div><div id="hint">点击卡牌逐张翻开 · 按空格或点此处全部翻开</div></div>
+<div id="flash"></div>
+<div id="result">
+  <h2>祈愿结算</h2>
+  <div id="rlist"></div>
+  <div id="summary"></div>
+  <div class="btns"><button id="again" class="gold">再来十连</button><button id="close">返回</button></div>
+</div>
+<script>
+const POOL={5:[["🐉","苍龙·烛照"],["🔥","焰之女帝"],["⚡","雷霆剑圣"]],4:[["🦊","九尾狐"],["🗡️","影刃"],["🌙","月之巫女"],["🛡️","圣盾骑士"]],3:[["🏹","长弓"],["📜","古卷"],["🧪","药剂"],["🪓","战斧"],["💎","宝石"]]};
+let total=0,pity=0,cards=[],revealed=0;
+const $=s=>document.querySelector(s);
+// 背景星空 + 粒子
+const cv=$("#bg"),cx=cv.getContext("2d");let W,H,stars=[],parts=[];
+function rs(){W=cv.width=innerWidth;H=cv.height=innerHeight;stars=Array.from({length:200},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.6,s:Math.random()*0.02+0.005,p:Math.random()*6}))}
+rs();addEventListener("resize",rs);
+function burst(x,y,color,n=80){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=Math.random()*7+2;parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:1,c:color,r:Math.random()*3+1})}}
+function loop(t){cx.clearRect(0,0,W,H);for(const s of stars){cx.globalAlpha=.4+.6*Math.abs(Math.sin(t*s.s*.1+s.p));cx.fillStyle="#fff";cx.beginPath();cx.arc(s.x,s.y,s.r,0,7);cx.fill()}
+cx.globalCompositeOperation="lighter";for(const p of parts){p.x+=p.vx;p.y+=p.vy;p.vy+=.08;p.vx*=.98;p.life-=.012;cx.globalAlpha=Math.max(p.life,0);cx.fillStyle=p.c;cx.beginPath();cx.arc(p.x,p.y,p.r,0,7);cx.fill()}
+cx.globalCompositeOperation="source-over";parts=parts.filter(p=>p.life>0);requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+function roll(){total++;pity++;let r=Math.random(),rar;
+ if(pity>=90||r<0.016){rar=5;pity=0}else if(r<0.016+0.13)rar=4;else rar=3;
+ const l=POOL[rar];const [ico,nm]=l[Math.floor(Math.random()*l.length)];return{rar,ico,nm}}
+function draw(n){
+ cards=[];for(let i=0;i<n;i++)cards.push(roll());
+ if(n===10&&!cards.some(c=>c.rar>=4)){cards[9]=(()=>{const l=POOL[4];const [ico,nm]=l[Math.floor(Math.random()*l.length)];return{rar:4,ico,nm}})()} // 十连保底四星
+ $("#stats").textContent=`累计 ${total} 抽 · 距保底 ${90-pity}`;
+ const g=$("#grid");g.innerHTML="";g.style.gridTemplateColumns=`repeat(${Math.min(n,5)},120px)`;revealed=0;
+ const best=Math.max(...cards.map(c=>c.rar));
+ $("#stage").style.display="flex";$("#ui").style.display="none";
+ if(best===5){const f=$("#flash");f.style.opacity=1;setTimeout(()=>f.style.opacity=0,400);burst(W/2,H/2,"#ffd24a",160)}
+ cards.forEach((c,i)=>{const d=document.createElement("div");d.className="card r"+c.rar;
+  d.innerHTML=`<div class="face back"></div><div class="face front"><div class="ico">${c.ico}</div><div class="nm">${c.nm}</div><div class="st">${"★".repeat(c.rar)}</div></div>`;
+  d.onclick=()=>flip(d,c);g.appendChild(d);
+  setTimeout(()=>{d.classList.add("in");if(c.rar>=4)d.classList.add("glow")},120*i+100)});
+}
+function flip(d,c){if(d.classList.contains("flip"))return;d.classList.remove("in","glow");d.classList.add("flip");revealed++;
+ const r=d.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+ if(c.rar===5){burst(x,y,"#ffd24a",120);burst(x,y,"#fff",40);const f=$("#flash");f.style.opacity=.7;setTimeout(()=>f.style.opacity=0,250)}
+ else if(c.rar===4)burst(x,y,"#c06bff",50);else burst(x,y,"#4f8cff",15);
+ if(revealed===cards.length)setTimeout(showResult,1100)}
+function flipAll(){[...document.querySelectorAll(".card")].forEach((d,i)=>setTimeout(()=>flip(d,cards[i]),i*90))}
+function showResult(){const l=$("#rlist");l.innerHTML="";l.style.gridTemplateColumns=`repeat(${Math.min(cards.length,5)},110px)`;
+ [...cards].sort((a,b)=>b.rar-a.rar).forEach(c=>{l.innerHTML+=`<div class="ri r${c.rar}"><div class="ico">${c.ico}</div><div>${c.nm}</div><div>${"★".repeat(c.rar)}</div></div>`});
+ const n5=cards.filter(c=>c.rar===5).length,n4=cards.filter(c=>c.rar===4).length;
+ $("#summary").innerHTML=`五星 <b style="color:#ffd24a">${n5}</b> · 四星 <b style="color:#c06bff">${n4}</b> · 三星 ${cards.length-n5-n4}`+(n5?" 🎉 恭喜出金！":"");
+ $("#result").style.display="flex"}
+function back(){$("#result").style.display="none";$("#stage").style.display="none";$("#ui").style.display="flex"}
+$("#one").onclick=()=>draw(1);$("#ten").onclick=()=>draw(10);
+$("#again").onclick=()=>{$("#result").style.display="none";draw(10)};$("#close").onclick=back;
+addEventListener("keydown",e=>{if(e.code==="Space"&&$("#stage").style.display==="flex"){e.preventDefault();flipAll()}});
+$("#hint").onclick=flipAll;
+// URL ?demo=1 自动演示（用于截图）
+if(new URLSearchParams(location.search).get("demo")){draw(10);setTimeout(flipAll,1500)}
+</script>
+</body>
+</html>

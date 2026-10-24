@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>体素小岛 · 参考实现</title>
+<style>
+*{margin:0;padding:0}body{overflow:hidden;background:#000;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif}
+#ui{position:fixed;top:12px;left:12px;color:#fff;background:#0008;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.8}
+#ui input{vertical-align:middle;width:140px}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="ui">
+ <div>🏝️ 体素小岛 · 拖动旋转 / 滚轮缩放 / 右键平移</div>
+ <div>时间 <span id="clock">12:00</span> <input id="speed" type="range" min="0" max="3" step="0.1" value="1"> 流速</div>
+ <label><input id="pause" type="checkbox"> 暂停昼夜</label>
+</div>
+<script type="module">
+import * as THREE from "three";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;document.body.appendChild(renderer.domElement);
+const scene=new THREE.Scene();scene.fog=new THREE.Fog(0x87ceeb,60,140);
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,500);camera.position.set(34,26,34);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,3,0);controls.maxPolarAngle=Math.PI*.48;controls.minDistance=12;controls.maxDistance=90;
+// 简易值噪声
+function hash(x,y){const s=Math.sin(x*127.1+y*311.7)*43758.5453;return s-Math.floor(s)}
+function noise(x,y){const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);
+ const a=hash(ix,iy),b=hash(ix+1,iy),c=hash(ix,iy+1),d=hash(ix+1,iy+1);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v}
+const R=16,box=new THREE.BoxGeometry(1,1,1);
+const mats={grass:0x5cb85c,dirt:0x8b5a2b,sand:0xe8d38a,stone:0x8a8a8a,snow:0xf4f4f4,wood:0x6b4226,leaf:0x2f8f3a};
+const lists={};Object.keys(mats).forEach(k=>lists[k]=[]);
+for(let x=-R;x<=R;x++)for(let z=-R;z<=R;z++){
+ const d=Math.hypot(x,z)/R;if(d>1)continue;
+ const n=noise(x*.15,z*.15)*.7+noise(x*.35,z*.35)*.3;let h=Math.floor((1-d*d)*(4+n*9))-1;if(h<0)continue;
+ for(let y=0;y<=h;y++){let t;
+  if(y===h){t=h<=1?"sand":h>=9?"snow":h>=7?"stone":"grass"}else t=y<h-2?"stone":"dirt";
+  lists[t].push([x,y,z])}
+ const top=h;if(top>=2&&top<=6&&hash(x*3.1,z*7.7)>.975){for(let y=1;y<=3;y++)lists.wood.push([x,top+y,z]);
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let dy=3;dy<=5;dy++){if(Math.abs(dx)+Math.abs(dz)+(dy===5?1:0)>2)continue;if(dx===0&&dz===0&&dy===3)continue;lists.leaf.push([x+dx,top+dy,z+dz])}}
+}
+const m4=new THREE.Matrix4();
+for(const k in lists){const arr=lists[k];if(!arr.length)continue;
+ const mesh=new THREE.InstancedMesh(box,new THREE.MeshLambertMaterial({color:mats[k]}),arr.length);
+ arr.forEach(([x,y,z],i)=>{m4.makeTranslation(x,y,z);mesh.setMatrixAt(i,m4)});mesh.castShadow=mesh.receiveShadow=true;scene.add(mesh)}
+// 水面：顶点波动的平面
+const wGeo=new THREE.PlaneGeometry(200,200,120,120);wGeo.rotateX(-Math.PI/2);
+const wMat=new THREE.MeshPhongMaterial({color:0x1e7fd0,transparent:true,opacity:.78,shininess:90,specular:0xbbddff,flatShading:true});
+const water=new THREE.Mesh(wGeo,wMat);water.position.y=.7;water.receiveShadow=true;scene.add(water);
+const wPos=wGeo.attributes.position,wBase=Float32Array.from(wPos.array);
+// 灯光
+const hemi=new THREE.HemisphereLight(0xbfe3ff,0x3a5a2a,.6);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xffffff,1.4);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,near:1,far:150});scene.add(sun);
+const moon=new THREE.DirectionalLight(0x88aaff,0);scene.add(moon);
+const sunMesh=new THREE.Mesh(new THREE.SphereGeometry(3,16,16),new THREE.MeshBasicMaterial({color:0xffdd66,fog:false}));scene.add(sunMesh);
+const moonMesh=new THREE.Mesh(new THREE.SphereGeometry(2,16,16),new THREE.MeshBasicMaterial({color:0xdde6ff,fog:false}));scene.add(moonMesh);
+// 星星
+const sg=new THREE.BufferGeometry(),sp=[];for(let i=0;i<1500;i++){const v=new THREE.Vector3().randomDirection().multiplyScalar(200);if(v.y<0)v.y*=-1;sp.push(v.x,v.y,v.z)}
+sg.setAttribute("position",new THREE.Float32BufferAttribute(sp,3));const stars=new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:1.2,transparent:true,opacity:0,fog:false}));scene.add(stars);
+// 夜晚萤火/灯笼
+const lamp=new THREE.PointLight(0xffaa44,0,25);lamp.position.set(0,8,0);scene.add(lamp);
+const C={day:new THREE.Color(0x87ceeb),dusk:new THREE.Color(0xff8a5c),night:new THREE.Color(0x0b1026)};
+let tod=params().get("t")?parseFloat(params().get("t")):0.35; // 0..1 一天
+function params(){return new URLSearchParams(location.search)}
+const clock=new THREE.Clock(),sky=new THREE.Color();
+function animate(){requestAnimationFrame(animate);const dt=clock.getDelta(),t=clock.elapsedTime;
+ if(!document.getElementById("pause").checked)tod=(tod+dt*parseFloat(document.getElementById("speed").value)/60)%1; // 默认 60 秒一天
+ const ang=tod*Math.PI*2-Math.PI/2,sy=Math.sin(ang),sx=Math.cos(ang);
+ sun.position.set(sx*60,sy*60,20);sunMesh.position.copy(sun.position);moon.position.set(-sx*60,-sy*60,-20);moonMesh.position.copy(moon.position);
+ const day=THREE.MathUtils.clamp(sy*3+.3,0,1),dusk=Math.max(0,1-Math.abs(sy)*4)*(1-0);
+ sky.copy(C.night).lerp(C.day,day);sky.lerp(C.dusk,dusk*.6);scene.background=sky;scene.fog.color.copy(sky);
+ sun.intensity=1.4*day;sun.color.setHSL(.1,1,.5+.5*day);moon.intensity=.35*(1-day);hemi.intensity=.15+.5*day;
+ stars.material.opacity=1-day;lamp.intensity=(1-day)*3;sunMesh.visible=sy>-.1;moonMesh.visible=sy<.1;
+ wMat.color.setHSL(.57,.7,.15+.3*day);
+ for(let i=0;i<wPos.count;i++){const bx=wBase[i*3],bz=wBase[i*3+2];wPos.array[i*3+1]=Math.sin(bx*.3+t*1.5)*.15+Math.cos(bz*.4+t*1.2)*.15}
+ wPos.needsUpdate=true;
+ const hh=Math.floor(tod*24),mm=Math.floor((tod*24-hh)*60);document.getElementById("clock").textContent=`${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+ controls.update();renderer.render(scene,camera)}
+animate();
+addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script>
+</body>
+</html>

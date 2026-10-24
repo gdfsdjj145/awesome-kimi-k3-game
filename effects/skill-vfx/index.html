@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>技能释放特效 · 参考实现</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0d14;overflow:hidden;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;color:#fff}
+canvas{display:block}
+#hud{position:fixed;left:0;right:0;bottom:24px;display:flex;justify-content:center;gap:14px}
+.sk{width:78px;height:78px;border-radius:14px;border:2px solid #fff4;background:#ffffff10;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:28px;position:relative;overflow:hidden}
+.sk span{font-size:12px;margin-top:2px}
+.sk b{position:absolute;top:4px;left:6px;font-size:11px;opacity:.7}
+.sk .cd{position:absolute;left:0;right:0;bottom:0;background:#000a;height:0}
+#tip{position:fixed;top:16px;left:0;right:0;text-align:center;opacity:.7;font-size:14px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="tip">按 1/2/3/4 或点击技能释放 · 点击场景任意位置挪动木桩</div>
+<div id="hud">
+ <div class="sk" data-k="0"><b>1</b>🔥<span>火球术</span><div class="cd"></div></div>
+ <div class="sk" data-k="1"><b>2</b>⚡<span>连锁闪电</span><div class="cd"></div></div>
+ <div class="sk" data-k="2"><b>3</b>🗡️<span>疾风斩</span><div class="cd"></div></div>
+ <div class="sk" data-k="3"><b>4</b>☄️<span>陨石天降</span><div class="cd"></div></div>
+</div>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d");let W,H;
+function rs(){W=c.width=innerWidth;H=c.height=innerHeight}rs();addEventListener("resize",rs);
+const hero={x:0,y:0},dummy={x:0,y:0,hp:1,flash:0,kx:0,shake:0};
+function place(){hero.x=W*.22;hero.y=H*.6;dummy.x=W*.72;dummy.y=H*.6}place();addEventListener("resize",place);
+let parts=[],projs=[],texts=[],bolts=[],shake=0,cds=[0,0,0,0];const CD=[0.6,1.2,0.8,2.5];
+const rnd=(a,b)=>a+Math.random()*(b-a);
+function P(o){parts.push(Object.assign({vx:0,vy:0,life:1,decay:.02,r:3,g:0,c:"#fff",drag:.97,shrink:true},o))}
+function explode(px,py,cols,n,sp=8){for(let i=0;i<n;i++){const a=rnd(0,7),v=rnd(1,sp);P({x:px,y:py,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:rnd(2,5),c:cols[i%cols.length],decay:rnd(.015,.04),g:.12})}
+ parts.push({ring:true,x:px,y:py,rr:5,life:1,c:cols[0]})}
+function hit(dmg,strength,col){dummy.flash=1;dummy.kx=strength*3;shake=Math.max(shake,strength);dummy.hp=Math.max(0,dummy.hp-dmg/1000);
+ const crit=Math.random()<.3;texts.push({x:dummy.x+rnd(-20,20),y:dummy.y-90,t:(crit?"暴击 ":"")+Math.round(dmg*(crit?2:1)),life:1,c:crit?"#ffd23a":col,s:crit?34:24});
+ if(dummy.hp<=0)setTimeout(()=>dummy.hp=1,800)}
+const skills=[
+ ()=>{projs.push({x:hero.x+30,y:hero.y-40,vx:14,type:"fire",trail:[]})},
+ ()=>{let pts=[[hero.x+30,hero.y-40]],n=10;for(let i=1;i<=n;i++){const t=i/n;pts.push([hero.x+30+(dummy.x-hero.x-30)*t+(i<n?rnd(-30,30):0),hero.y-40+(dummy.y-50-hero.y+40)*t+(i<n?rnd(-40,40):0)])}
+   bolts.push({pts,life:1});explode(dummy.x,dummy.y-50,["#9fe8ff","#ffffff","#5bb8ff"],60,10);hit(180,10,"#9fe8ff")},
+ ()=>{projs.push({x:hero.x+30,y:hero.y-40,vx:24,type:"slash",trail:[]})},
+ ()=>{projs.push({x:dummy.x-260,y:-60,vx:9,vy:20,type:"meteor",trail:[]})}
+];
+function cast(k){if(cds[k]>0)return;cds[k]=CD[k];skills[k]();for(let i=0;i<20;i++){const a=rnd(0,7);P({x:hero.x,y:hero.y-30,vx:Math.cos(a)*3,vy:Math.sin(a)*3,c:["#ff8a3a","#9fe8ff","#b6ff7a","#ff5a3a"][k],decay:.05})}}
+addEventListener("keydown",e=>{const k="1234".indexOf(e.key);if(k>=0)cast(k)});
+document.querySelectorAll(".sk").forEach(el=>el.onclick=e=>{e.stopPropagation();cast(+el.dataset.k)});
+c.addEventListener("click",e=>{dummy.x=e.clientX;dummy.y=Math.max(H*.3,Math.min(H*.85,e.clientY))});
+let last=performance.now();
+function update(dt){
+ for(let i=0;i<4;i++)cds[i]=Math.max(0,cds[i]-dt);
+ for(const p of projs){p.trail.push([p.x,p.y]);if(p.trail.length>(p.type==="slash"?8:18))p.trail.shift();
+  if(p.type==="meteor"){p.x+=p.vx;p.y+=p.vy;P({x:p.x,y:p.y,vx:rnd(-1,1),vy:rnd(-3,-1),c:["#ff5a3a","#ffb03a","#555"][Math.floor(rnd(0,3))],r:rnd(3,7),decay:.025})
+   if(p.y>=dummy.y-30){p.dead=1;explode(dummy.x,dummy.y-30,["#ff5a3a","#ffd23a","#ffffff","#7a2a10"],200,14);hit(520,22,"#ff7a3a")}}
+  else{const dy=(dummy.y-50-p.y);p.y+=dy*.08;p.x+=p.vx;
+   if(p.type==="fire")P({x:p.x,y:p.y,vx:rnd(-1.5,.5),vy:rnd(-1.5,1.5),c:Math.random()<.5?"#ff8a3a":"#ffd23a",r:rnd(3,6),decay:.04});
+   if(p.x>=dummy.x-20){p.dead=1;if(p.type==="fire"){explode(p.x,p.y,["#ff8a3a","#ffd23a","#fff"],90,9);hit(240,12,"#ff8a3a")}
+    else{explode(p.x,p.y,["#b6ff7a","#ffffff"],50,12);hit(150,7,"#b6ff7a")}}}}
+ projs=projs.filter(p=>!p.dead&&p.x<W+100);
+ for(const p of parts){if(p.ring){p.rr+=8;p.life-=.04;continue}p.vx*=p.drag;p.vy=p.vy*p.drag+p.g;p.x+=p.vx;p.y+=p.vy;p.life-=p.decay}
+ parts=parts.filter(p=>p.life>0);
+ for(const t of texts){t.y-=1.2;t.life-=.015}texts=texts.filter(t=>t.life>0);
+ for(const b of bolts)b.life-=.06;bolts=bolts.filter(b=>b.life>0);
+ dummy.flash*=.85;dummy.kx*=.85;shake*=.88;
+ document.querySelectorAll(".sk .cd").forEach((el,i)=>el.style.height=(cds[i]/CD[i]*100)+"%");
+}
+function drawChar(cx,cy,col,flash,label){x.save();x.translate(cx,cy);
+ x.fillStyle="#0006";x.beginPath();x.ellipse(0,4,40,10,0,0,7);x.fill();
+ x.fillStyle=flash>.1?`rgba(255,255,255,${.4+flash*.6})`:col;x.fillRect(-18,-80,36,80);x.beginPath();x.arc(0,-96,18,0,7);x.fill();
+ if(flash>.1){x.globalCompositeOperation="lighter";x.fillStyle=`rgba(255,255,255,${flash})`;x.fillRect(-18,-80,36,80);x.beginPath();x.arc(0,-96,18,0,7);x.fill()}
+ x.restore()}
+function render(){
+ x.setTransform(1,0,0,1,0,0);x.fillStyle="#0a0d14";x.fillRect(0,0,W,H);
+ const sx=rnd(-shake,shake),sy=rnd(-shake,shake);x.translate(sx,sy);
+ x.fillStyle="#141b2a";x.fillRect(-50,H*.6,W+100,H);x.strokeStyle="#ffffff10";for(let i=0;i<W;i+=60){x.beginPath();x.moveTo(i,H*.6);x.lineTo(i-200,H+50);x.stroke()}
+ drawChar(hero.x,hero.y,"#3a7bff",0);
+ drawChar(dummy.x+dummy.kx,dummy.y,"#b0703a",dummy.flash);
+ x.fillStyle="#300";x.fillRect(dummy.x-40,dummy.y-130,80,8);x.fillStyle="#e33";x.fillRect(dummy.x-40,dummy.y-130,80*dummy.hp,8);
+ x.globalCompositeOperation="lighter";
+ for(const p of projs){for(let i=0;i<p.trail.length;i++){const [tx,ty]=p.trail[i],k=i/p.trail.length;
+   if(p.type==="slash"){x.strokeStyle=`rgba(182,255,122,${k})`;x.lineWidth=k*6;x.beginPath();x.arc(tx,ty,40,-1.1,1.1);x.stroke()}
+   else{x.fillStyle=p.type==="fire"?`rgba(255,${120+k*100|0},40,${k*.6})`:`rgba(255,90,40,${k*.5})`;x.beginPath();x.arc(tx,ty,k*(p.type==="meteor"?22:12),0,7);x.fill()}}
+  const g=x.createRadialGradient(p.x,p.y,0,p.x,p.y,p.type==="meteor"?40:24);g.addColorStop(0,"#fff");g.addColorStop(.4,p.type==="slash"?"#b6ff7a":"#ff9a3a");g.addColorStop(1,"transparent");x.fillStyle=g;x.beginPath();x.arc(p.x,p.y,p.type==="meteor"?40:24,0,7);x.fill()}
+ for(const b of bolts){for(const [w,col] of [[10,`rgba(80,170,255,${b.life*.4})`],[3,`rgba(230,250,255,${b.life})`]]){x.strokeStyle=col;x.lineWidth=w;x.beginPath();b.pts.forEach(([px,py],i)=>i?x.lineTo(px,py):x.moveTo(px,py));x.stroke()}}
+ for(const p of parts){if(p.ring){x.strokeStyle=p.c;x.globalAlpha=p.life;x.lineWidth=4*p.life;x.beginPath();x.arc(p.x,p.y,p.rr,0,7);x.stroke();x.globalAlpha=1;continue}
+  x.globalAlpha=p.life;x.fillStyle=p.c;x.beginPath();x.arc(p.x,p.y,p.r*(p.shrink?p.life:1)+.3,0,7);x.fill()}
+ x.globalAlpha=1;x.globalCompositeOperation="source-over";
+ for(const t of texts){x.globalAlpha=t.life;x.font=`bold ${t.s}px system-ui`;x.textAlign="center";x.lineWidth=4;x.strokeStyle="#000";x.strokeText(t.t,t.x,t.y);x.fillStyle=t.c;x.fillText(t.t,t.x,t.y)}
+ x.globalAlpha=1;
+ if(dummy.flash>.5){x.setTransform(1,0,0,1,0,0);x.fillStyle=`rgba(255,255,255,${(dummy.flash-.5)*.25})`;x.fillRect(0,0,W,H)}
+}
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;update(dt);render();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+if(new URLSearchParams(location.search).get("demo")){[0,1,2,3].forEach((k,i)=>setTimeout(()=>cast(k),300+i*350))}
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Awesome Kimi K3 Game · 效果库</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1017;color:#e8ecf3;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;padding:32px 20px}
+header{max-width:1100px;margin:0 auto 24px}
+h1{font-size:28px}header p{opacity:.75;margin-top:8px;line-height:1.7;font-size:14px}
+a{color:#8ab4ff}
+.grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+.card{background:#161b26;border:1px solid #252c3b;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.card img{width:100%;aspect-ratio:5/3;object-fit:cover;display:block;background:#000;transition:transform .3s}
+.card a.thumb{overflow:hidden;display:block}.card a.thumb:hover img{transform:scale(1.04)}
+.body{padding:14px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
+.title{font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px}
+.tag{font-size:12px;padding:2px 8px;border-radius:999px;background:#3a2f12;color:#ffd36a;border:1px solid #6b5520;font-weight:normal}
+.desc{font-size:13px;opacity:.75;line-height:1.6}
+.meta{font-size:12px;opacity:.55}
+.btns{display:flex;gap:8px;margin-top:auto}
+.btns a,.btns button{flex:1;text-align:center;padding:8px;border-radius:8px;font-size:14px;cursor:pointer;border:1px solid #33405a;background:#1f2738;color:#e8ecf3;text-decoration:none}
+.btns a.play{background:#2d5bff;border-color:#2d5bff}
+.btns button.ok{background:#1d6b3a;border-color:#1d6b3a}
+footer{max-width:1100px;margin:28px auto 0;font-size:12px;opacity:.5;line-height:1.7}
+</style>
+</head>
+<body>
+<header>
+ <h1>🎮 效果库</h1>
+ <p>单个 HTML 文件、打开就能玩的游戏效果，每个都附完整提示词，可复制给 Kimi K3.1 Pro 复现对比。<br>
+ ⚠️ 下列效果均标为 <span class="tag">参考实现</span>：由 Grok Bot 代 kajian du 制作，<b>不是 Kimi 生成</b>。欢迎用同一提示词跑 Kimi 后提交结果。
+ · <a href="https://github.com/gdfsdjj145/awesome-kimi-k3-game">GitHub 仓库</a></p>
+</header>
+<main class="grid" id="grid"></main>
+<footer>点「复制提示词」会读取对应目录下的 prompt.md 并复制到剪贴板。</footer>
+<script>
+const EFFECTS=[
+ {slug:"gacha-ten-pull",name:"卡牌十连抽动画",desc:"十连抽卡、卡背预兆、3D 翻牌、出金光环与粒子、结算界面、90 抽保底。",engine:"HTML5 + CSS 3D + Canvas"},
+ {slug:"skill-vfx",name:"技能释放特效",desc:"火球、闪电、剑气、陨石四个技能：粒子、拖尾、受击闪白、屏幕震动、暴击飘字。",engine:"Canvas 2D"},
+ {slug:"voxel-island",name:"体素小岛",desc:"程序生成体素岛屿与树木，波动水面，日月公转的昼夜循环，OrbitControls 转视角。",engine:"Three.js"}
+];
+const g=document.getElementById("grid");
+for(const e of EFFECTS){const url=`effects/${e.slug}/`;
+ const d=document.createElement("div");d.className="card";
+ d.innerHTML=`<a class="thumb" href="${url}"><img src="${url}preview.png" alt="${e.name}" loading="lazy"></a>
+ <div class="body"><div class="title">${e.name}<span class="tag">参考实现</span></div>
+ <div class="desc">${e.desc}</div><div class="meta">引擎：${e.engine} · 作者：Grok Bot（非 Kimi 生成）</div>
+ <div class="btns"><a class="play" href="${url}">▶ 开始玩</a><a href="${url}prompt.md" target="_blank">查看提示词</a><button>📋 复制提示词</button></div></div>`;
+ const b=d.querySelector("button");
+ b.onclick=async()=>{try{const t=await (await fetch(`${url}prompt.md`)).text();
+   try{await navigator.clipboard.writeText(t)}catch{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove()}
+   b.textContent="✅ 已复制";b.classList.add("ok")}catch(err){b.textContent="❌ 复制失败"}
+   setTimeout(()=>{b.textContent="📋 复制提示词";b.classList.remove("ok")},1800)};
+ g.appendChild(d)}
+</script>
+</body>
+</html>

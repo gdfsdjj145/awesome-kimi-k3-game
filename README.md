@@ -11,13 +11,14 @@
 | 标记 | 含义 |
 | --- | --- |
 | ✅ 已验证 | 我们打开过可玩链接或源码，能跑 |
+| 🧪 参考实现 | 非 Kimi 生成，由 Grok Bot 编写的对照实现，附可复现提示词 |
 | 📣 推广 | 官方展示、无可复现源码的营销式帖子，或作者推自家产品。Kimi 有[创作者推广活动](https://x.com/elshayib_/status/2113903850641842589)，请自行甄别 |
 
 「未说明」= 原帖没给，我们不猜。
 
 ## 目录
 
-- [官方资源](#官方资源) · [游戏作品与 Demo](#游戏作品与-demo) · [GitHub 项目](#github-项目) · [Skill 与工作流](#skill-与工作流) · [教程与提示词](#教程与提示词) · [评测](#评测) · [社区讨论](#社区讨论) · [相关合集](#相关合集) · [待补充：本地运行做游戏](#待补充本地运行做游戏) · [统一测试题](benchmarks/README.md)
+- [官方资源](#官方资源) · [游戏作品与 Demo](#游戏作品与-demo) · [效果库](#效果库) · [GitHub 项目](#github-项目) · [Skill 与工作流](#skill-与工作流) · [教程与提示词](#教程与提示词) · [评测](#评测) · [社区讨论](#社区讨论) · [相关合集](#相关合集) · [待补充：本地运行做游戏](#待补充本地运行做游戏) · [统一测试题](benchmarks/README.md)
 
 ## 官方资源
 
@@ -42,6 +43,18 @@
 | 开发者多引擎实测 | K3.1 Pro | Unity / Unreal / Godot / Three.js / Blender | 未说明 | 未说明 | 未说明 | [@Layton_Gott](https://x.com/Layton_Gott/status/2113809753541410864)（45 赞） | 无 | 📣 推广（体验帖，无源码） |
 
 > 两个 ✅ 项目仓库都**没有许可证**，所以没有复制进 [games/](games/)，只链接作者自己的在线页面。
+
+## 效果库
+
+单 HTML、打开即玩的游戏效果，每个附完整提示词（可直接喂给 Kimi K3.1 Pro 复现）。画廊页：[https://gdfsdjj145.github.io/awesome-kimi-k3-game/](https://gdfsdjj145.github.io/awesome-kimi-k3-game/)
+
+> 🧪 参考实现 = 由 Grok Bot 代 kajian du 制作，**不是 Kimi 生成**，用来给 Kimi 复现做对照。欢迎用同一提示词跑 Kimi 后提交结果。
+
+| 效果 | 可玩链接 | 提示词 | 标记 |
+| --- | --- | --- | --- |
+| 卡牌十连抽动画 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/gacha-ten-pull/) | [prompt.md](effects/gacha-ten-pull/prompt.md) | 🧪 参考实现 |
+| 技能释放特效 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/skill-vfx/) | [prompt.md](effects/skill-vfx/prompt.md) | 🧪 参考实现 |
+| 体素小岛 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/voxel-island/) | [prompt.md](effects/voxel-island/prompt.md) | 🧪 参考实现 |
 
 ## GitHub 项目
 
