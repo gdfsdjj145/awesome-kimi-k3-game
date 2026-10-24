@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>塔防 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}body{background:#14202b;color:#fff;font-family:system-ui,"PingFang SC",sans-serif;display:flex;flex-direction:column;align-items:center;padding-top:10px;overflow:hidden}
+#bar{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;justify-content:center}
+.t{padding:6px 12px;border-radius:8px;background:#22313f;border:2px solid #3a4d60;cursor:pointer;font-size:14px}.t.sel{border-color:#ffd24f;background:#3a3420}
+button{padding:7px 16px;border:none;border-radius:8px;background:#2d8f4e;color:#fff;font-size:14px;cursor:pointer}
+#info{font-size:15px}canvas{border-radius:10px;cursor:crosshair}#tip{font-size:12px;opacity:.6;margin-top:6px}</style></head>
+<body><div id="bar"><span id="info"></span>
+<div class="t sel" data-k="arrow">🏹 箭塔 $50</div><div class="t" data-k="cannon">💣 炮塔 $100</div><div class="t" data-k="frost">❄️ 冰塔 $80</div>
+<button id="wave">开始下一波</button><button id="spd">速度 ×1</button></div>
+<canvas id="c" width="960" height="560"></canvas><div id="tip">选择塔后点击草地建造 · 点已有塔升级（花费同造价）· 敌人走到终点扣生命</div>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d"),S=40,CW=24,CH=14;
+const path=[[0,2],[6,2],[6,10],[12,10],[12,4],[18,4],[18,11],[23,11]];// 网格路点
+const cells=new Set();for(let i=0;i<path.length-1;i++){let [a,b]=path[i],[cx,cy]=path[i+1];while(a!=cx||b!=cy){cells.add(a+","+b);a+=Math.sign(cx-a);b+=Math.sign(cy-b)}cells.add(cx+","+cy)}
+const TT={arrow:{cost:50,range:120,rate:30,dmg:12,col:"#c9a26b",proj:"#ffe"},cannon:{cost:100,range:110,rate:70,dmg:30,splash:50,col:"#666",proj:"#333"},frost:{cost:80,range:100,rate:45,dmg:5,slow:.5,col:"#7fd4ff",proj:"#bff"}};
+let gold=150,lives=20,wave=0,towers=[],enemies=[],shots=[],parts=[],sel="arrow",spawnQ=[],speed=1,msg="",frame=0;
+document.querySelectorAll(".t").forEach(el=>el.onclick=()=>{document.querySelectorAll(".t").forEach(e=>e.classList.remove("sel"));el.classList.add("sel");sel=el.dataset.k});
+document.getElementById("wave").onclick=startWave;document.getElementById("spd").onclick=e=>{speed=speed==1?2:speed==2?3:1;e.target.textContent="速度 ×"+speed};
+function startWave(){if(spawnQ.length||enemies.length)return;wave++;const n=6+wave*2;for(let i=0;i<n;i++){const boss=wave%5==0&&i==n-1;spawnQ.push({delay:i*35,hp:(20+wave*12)*(boss?8:1),spd:boss?.6:(i%3==0?1.6:1),boss})}}
+c.onclick=e=>{const r=c.getBoundingClientRect(),gx=Math.floor((e.clientX-r.left)*c.width/r.width/S),gy=Math.floor((e.clientY-r.top)*c.height/r.height/S);
+ const t=towers.find(t=>t.gx==gx&&t.gy==gy);if(t){const cost=TT[t.k].cost;if(gold>=cost&&t.lv<3){gold-=cost;t.lv++;puff(t.x,t.y,"#ffd24f",20)}return}
+ if(cells.has(gx+","+gy))return;const k=TT[sel];if(gold<k.cost){msg="金币不足";setTimeout(()=>msg="",900);return}gold-=k.cost;towers.push({gx,gy,x:gx*S+S/2,y:gy*S+S/2,k:sel,cd:0,lv:1,ang:0});puff(gx*S+S/2,gy*S+S/2,"#fff",12)};
+function puff(px,py,col,n){for(let i=0;i<n;i++){const a=Math.random()*7,v=Math.random()*3+.5;parts.push({x:px,y:py,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,c:col})}}
+const wp=path.map(([a,b])=>[a*S+S/2,b*S+S/2]);
+function tick(){frame++;
+ spawnQ.forEach(s=>s.delay--);while(spawnQ.length&&spawnQ[0].delay<=0){const s=spawnQ.shift();enemies.push({x:wp[0][0]-20,y:wp[0][1],i:1,hp:s.hp,max:s.hp,spd:s.spd,boss:s.boss,slow:0})}
+ for(const e of enemies){const [tx,ty]=wp[e.i],dx=tx-e.x,dy=ty-e.y,d=Math.hypot(dx,dy),v=e.spd*(e.slow>0?.5:1);e.slow--;
+  if(d<v){e.x=tx;e.y=ty;e.i++;if(e.i>=wp.length){e.done=1;lives--;}}else{e.x+=dx/d*v;e.y+=dy/d*v}}
+ enemies=enemies.filter(e=>!e.done&&e.hp>0);
+ for(const t of towers){const k=TT[t.k],rng=k.range*(1+.15*(t.lv-1));t.cd--;let tgt=null,best=-1;
+  for(const e of enemies){const d=Math.hypot(e.x-t.x,e.y-t.y);if(d<rng&&e.i+e.x/1e4>best){best=e.i+e.x/1e4;tgt=e}}
+  if(tgt){t.ang=Math.atan2(tgt.y-t.y,tgt.x-t.x);if(t.cd<=0){t.cd=k.rate;shots.push({x:t.x,y:t.y,tgt,k:t.k,dmg:k.dmg*(1+.6*(t.lv-1))})}}}
+ for(const s of shots){const dx=s.tgt.x-s.x,dy=s.tgt.y-s.y,d=Math.hypot(dx,dy),v=s.k=="cannon"?5:8;
+  if(d<v){s.hit=1;const k=TT[s.k];if(k.splash){for(const e of enemies)if(Math.hypot(e.x-s.tgt.x,e.y-s.tgt.y)<k.splash)hurt(e,s.dmg);puff(s.tgt.x,s.tgt.y,"#f93",25)}else{hurt(s.tgt,s.dmg);if(k.slow)s.tgt.slow=90;puff(s.tgt.x,s.tgt.y,k.proj,5)}}
+  else{s.x+=dx/d*v;s.y+=dy/d*v}if(s.tgt.hp<=0&&!s.hit)s.hit=1}
+ shots=shots.filter(s=>!s.hit);parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.l-=.03});parts=parts.filter(p=>p.l>0);
+ if(lives<=0){msg="💀 防线失守！已重置";gold=150;lives=20;wave=0;towers=[];enemies=[];spawnQ=[];setTimeout(()=>msg="",2000)}}
+function hurt(e,d){if(e.hp<=0)return;e.hp-=d;if(e.hp<=0){gold+=e.boss?100:8+wave;puff(e.x,e.y,"#e44",16)}}
+function draw(){for(let i=0;i<CW;i++)for(let j=0;j<CH;j++){x.fillStyle=cells.has(i+","+j)?((i+j)%2?"#c9a66b":"#d4b27a"):((i+j)%2?"#4a8f3c":"#539a44");x.fillRect(i*S,j*S,S,S)}
+ x.font="22px serif";x.textAlign="center";x.textBaseline="middle";x.fillText("🚪",wp[0][0],wp[0][1]);x.fillText("🏰",wp.at(-1)[0],wp.at(-1)[1]);
+ for(const t of towers){const k=TT[t.k];x.fillStyle="#2b2b2b";x.beginPath();x.arc(t.x,t.y,16,0,7);x.fill();x.fillStyle=k.col;x.beginPath();x.arc(t.x,t.y,12,0,7);x.fill();
+  x.save();x.translate(t.x,t.y);x.rotate(t.ang);x.fillStyle="#222";x.fillRect(0,-3,18,6);x.restore();x.fillStyle="#ffd24f";for(let l=0;l<t.lv;l++)x.fillRect(t.x-9+l*7,t.y+14,5,4)}
+ for(const e of enemies){const r=e.boss?16:10;x.fillStyle=e.slow>0?"#8fd8ff":e.boss?"#8b1f9e":"#d33";x.beginPath();x.arc(e.x,e.y,r,0,7);x.fill();
+  x.fillStyle="#000";x.fillRect(e.x-14,e.y-r-8,28,4);x.fillStyle="#4f4";x.fillRect(e.x-14,e.y-r-8,28*e.hp/e.max,4)}
+ for(const s of shots){x.fillStyle=TT[s.k].proj;x.beginPath();x.arc(s.x,s.y,s.k=="cannon"?5:3,0,7);x.fill()}
+ parts.forEach(p=>{x.globalAlpha=p.l;x.fillStyle=p.c;x.fillRect(p.x,p.y,3,3)});x.globalAlpha=1;
+ if(msg){x.fillStyle="#000a";x.fillRect(330,250,300,60);x.fillStyle="#fff";x.font="22px system-ui";x.fillText(msg,480,280)}
+ document.getElementById("info").textContent=`💰 ${gold}  ❤️ ${lives}  🌊 第 ${wave} 波${wave%5==4?"（下一波有 Boss）":""}`}
+const demo=new URLSearchParams(location.search).get("demo");
+if(demo){[[5,4,"arrow"],[8,9,"cannon"],[13,6,"frost"],[10,8,"arrow"]].forEach(([gx,gy,k])=>towers.push({gx,gy,x:gx*S+S/2,y:gy*S+S/2,k,cd:0,lv:2,ang:0}));gold=300;startWave()}
+(function loop(){for(let i=0;i<speed;i++)tick();draw();requestAnimationFrame(loop)})();
+</script></body></html>

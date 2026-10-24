@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>跑酷 · 参考实现</title>
+<style>*{margin:0}body{overflow:hidden;background:#000;font-family:system-ui,"PingFang SC",sans-serif}canvas{display:block}
+#hud{position:fixed;top:12px;left:16px;color:#fff;font-size:18px;text-shadow:0 2px 4px #000}#over{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff;background:#0008;font-size:20px;gap:12px}
+#over b{font-size:40px}</style></head>
+<body><canvas id="c"></canvas><div id="hud"></div><div id="over"><b>💥 撞上了！</b><div id="res"></div><div>按空格 / 点击屏幕重新开始</div></div>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d");let W,H,G;function rs(){W=c.width=innerWidth;H=c.height=innerHeight;G=H*.78}rs();addEventListener("resize",rs);
+let pl,obs,coins,parts,speed,dist,score,best=+localStorage.runBest||0,dead,t0,spawnT,coinT;
+function reset(){pl={x:W*.18,y:0,vy:0,h:56,slide:0,jumps:0,run:0};obs=[];coins=[];parts=[];speed=7;dist=0;score=0;dead=0;spawnT=60;coinT=30;document.getElementById("over").style.display="none"}reset();
+function jump(){if(dead){reset();return}if(pl.jumps<2){pl.vy=pl.jumps?-13:-16;pl.jumps++;pl.slide=0;for(let i=0;i<8;i++)parts.push({x:pl.x,y:G,vx:-Math.random()*3,vy:-Math.random()*2,l:1,c:"#ddd"})}}
+function slide(){if(!dead&&pl.y==0)pl.slide=40;else if(!dead)pl.vy=18}
+onkeydown=e=>{if(["Space","ArrowUp","KeyW"].includes(e.code)){e.preventDefault();jump()}if(["ArrowDown","KeyS"].includes(e.code)){e.preventDefault();slide()}};
+let ty0;addEventListener("touchstart",e=>ty0=e.touches[0].clientY);addEventListener("touchend",e=>{const dy=e.changedTouches[0].clientY-ty0;dy>40?slide():jump()});
+addEventListener("mousedown",e=>{if(e.button==0&&!("ontouchstart" in window))jump()});
+const demo=new URLSearchParams(location.search).get("demo");
+function update(){if(dead)return;speed+=.0025;dist+=speed;score=Math.floor(dist/10)+coinsGot*20;
+ pl.vy+=.8;pl.y=Math.min(0,pl.y+pl.vy);if(pl.y==0){pl.vy=0;pl.jumps=0}pl.slide=Math.max(0,pl.slide-1);pl.run+=speed*.04;
+ if(--spawnT<=0){const type=Math.random()<.35?"bird":Math.random()<.5?"box":"spike";obs.push({x:W+50,type,w:type=="box"?44:type=="spike"?60:46,h:type=="box"?50:type=="spike"?28:30,fy:type=="bird"?40:0});spawnT=50+Math.random()*60*(7/speed)}
+ if(--coinT<=0){const h=Math.random()<.5?40:130;for(let i=0;i<5;i++)coins.push({x:W+50+i*36,y:h});coinT=90+Math.random()*80}
+ const ph=pl.slide?28:pl.h,px=pl.x-16,pw=32,py=G+pl.y-ph;
+ for(const o of obs){o.x-=speed;const oy=G-o.fy-o.h;if(px<o.x+o.w-6&&px+pw>o.x+6&&py<oy+o.h&&py+ph>oy){dead=1;over()}}
+ for(const k of coins){k.x-=speed;if(!k.got&&Math.abs(k.x-pl.x)<26&&Math.abs(G-k.y-(G+pl.y-ph/2))<34){k.got=1;coinsGot++;for(let i=0;i<8;i++)parts.push({x:k.x,y:G-k.y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,l:1,c:"#ffd700"})}}
+ if(demo){const n=obs.find(o=>o.x>pl.x&&o.x-pl.x<140);if(n){if(n.type=="bird")pl.slide=20;else if(pl.y==0)jump()}}
+ obs=obs.filter(o=>o.x>-100);coins=coins.filter(k=>k.x>-50&&!k.got);
+ if(Math.random()<.5)parts.push({x:pl.x-14,y:G+pl.y-6,vx:-speed*.3,vy:-Math.random(),l:.6,c:"#fff8"});
+ parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.l-=.03});parts=parts.filter(p=>p.l>0)}
+let coinsGot=0;const _r=reset;reset=function(){_r();coinsGot=0};
+function over(){best=Math.max(best,score);localStorage.runBest=best;document.getElementById("res").textContent=`距离 ${Math.floor(dist/10)} 米 · 得分 ${score} · 最高 ${best}`;document.getElementById("over").style.display="flex";if(demo)setTimeout(reset,1500)}
+function layer(par,col,hmin,hmax,wid,seed){x.fillStyle=col;const off=(dist*par)%wid;for(let i=-1;i<W/wid+2;i++){const k=Math.floor((dist*par)/wid)+i,h=hmin+((Math.sin(k*seed)*43758)%1+1)%1*(hmax-hmin);x.fillRect(i*wid-off,G-h,wid-6,h)}}
+function draw(){const sk=x.createLinearGradient(0,0,0,G);sk.addColorStop(0,"#2b1055");sk.addColorStop(1,"#d16ba5");x.fillStyle=sk;x.fillRect(0,0,W,H);
+ x.fillStyle="#ffd8a8";x.beginPath();x.arc(W*.75,G*.45,70,0,7);x.fill();
+ layer(.1,"#4b2a6e",80,220,90,12.9);layer(.3,"#33204d",40,150,60,78.2);
+ x.fillStyle="#1d1230";x.fillRect(0,G,W,H-G);x.strokeStyle="#ff5fa2";x.lineWidth=3;x.beginPath();x.moveTo(0,G);x.lineTo(W,G);x.stroke();
+ x.strokeStyle="#ff5fa255";x.lineWidth=1;for(let i=0;i<W;i+=50){const xx=i-(dist%50);x.beginPath();x.moveTo(xx,G);x.lineTo(xx-80,H);x.stroke()}
+ for(const k of coins){x.fillStyle="#ffd700";x.beginPath();x.ellipse(k.x,G-k.y,9*Math.abs(Math.cos(dist/40+k.x)),11,0,0,7);x.fill()}
+ for(const o of obs){const oy=G-o.fy-o.h;if(o.type=="box"){x.fillStyle="#c8743a";x.fillRect(o.x,oy,o.w,o.h);x.strokeStyle="#7a3f1a";x.lineWidth=3;x.strokeRect(o.x+3,oy+3,o.w-6,o.h-6)}
+  else if(o.type=="spike"){x.fillStyle="#ccd";for(let i=0;i<3;i++){x.beginPath();x.moveTo(o.x+i*20,G);x.lineTo(o.x+i*20+10,oy);x.lineTo(o.x+i*20+20,G);x.fill()}}
+  else{x.fillStyle="#222";const f=Math.sin(dist/20)*12;x.beginPath();x.moveTo(o.x,oy+15);x.lineTo(o.x+23,oy+15+f);x.lineTo(o.x+46,oy+15);x.lineTo(o.x+23,oy+22);x.fill();x.fillStyle="#f33";x.fillRect(o.x+4,oy+12,5,4)}}
+ const ph=pl.slide?28:pl.h,by=G+pl.y;x.save();x.translate(pl.x,by);
+ x.fillStyle="#4fe3ff";x.shadowColor="#4fe3ff";x.shadowBlur=15;
+ if(pl.slide){x.fillRect(-26,-28,52,24);x.beginPath();x.arc(22,-26,10,0,7);x.fill()}
+ else{x.fillRect(-9,-ph+16,18,ph-34);x.beginPath();x.arc(0,-ph+10,11,0,7);x.fill();x.lineWidth=6;x.strokeStyle="#4fe3ff";const s=Math.sin(pl.run)*(pl.y?0.3:1);
+  x.beginPath();x.moveTo(0,-18);x.lineTo(s*14,0);x.moveTo(0,-18);x.lineTo(-s*14,0);x.moveTo(0,-ph+22);x.lineTo(-s*14,-ph+40);x.moveTo(0,-ph+22);x.lineTo(s*14,-ph+40);x.stroke()}
+ x.restore();x.shadowBlur=0;
+ parts.forEach(p=>{x.globalAlpha=Math.max(0,p.l);x.fillStyle=p.c;x.fillRect(p.x,p.y,4,4)});x.globalAlpha=1;
+ document.getElementById("hud").innerHTML=`🏃 ${Math.floor(dist/10)} 米 · ⭐ ${score} · 🪙 ${coinsGot} · 最高 ${best}<br><small>空格/↑ 跳（可二段跳）· ↓ 滑铲/急降 · 手机：点击跳、下滑滑铲</small>`}
+(function loop(){update();draw();requestAnimationFrame(loop)})();
+</script></body></html>

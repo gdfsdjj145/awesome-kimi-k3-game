@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>三消 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}body{background:linear-gradient(160deg,#ff9a8b,#a18cd1 60%,#6a5acd);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,"PingFang SC",sans-serif;color:#fff;overflow:hidden}
+#top{display:flex;gap:18px;margin-bottom:12px;font-size:17px;background:#0003;padding:8px 18px;border-radius:999px}
+canvas{border-radius:18px;background:#ffffff22;box-shadow:0 10px 40px #0004;touch-action:none}
+button{margin-top:12px;padding:8px 22px;border:none;border-radius:999px;background:#fff;color:#7b4dff;font-size:15px;cursor:pointer}</style></head>
+<body><div id="top"><span id="sc"></span><span id="mv"></span><span id="cb"></span></div><canvas id="c" width="480" height="480"></canvas><button id="re">重新开始</button>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d"),N=8,S=60,GEMS=["🍎","🍋","🍇","🍀","💎","🍊"];
+let g,score,moves,combo,sel=null,busy=false,anim=[],parts=[],pops=[],shake=0;
+const rnd=()=>Math.floor(Math.random()*GEMS.length);
+function init(){g=[];for(let i=0;i<N;i++){g[i]=[];for(let j=0;j<N;j++){let t;do t=rnd();while((i>1&&g[i-1][j].t==t&&g[i-2][j].t==t)||(j>1&&g[i][j-1].t==t&&g[i][j-2].t==t));g[i][j]={t,y:j*S-480-Math.random()*200,s:1}}}score=0;moves=30;combo=0;busy=false;sel=null}
+function find(){const m=new Set();for(let j=0;j<N;j++)for(let i=0;i<N-2;i++){const t=g[i][j]?.t;if(t!=null&&g[i+1][j]?.t==t&&g[i+2][j]?.t==t)[0,1,2].forEach(k=>m.add((i+k)+","+j))}
+ for(let i=0;i<N;i++)for(let j=0;j<N-2;j++){const t=g[i][j]?.t;if(t!=null&&g[i][j+1]?.t==t&&g[i][j+2]?.t==t)[0,1,2].forEach(k=>m.add(i+","+(j+k)))}return[...m].map(s=>s.split(",").map(Number))}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function swap(a,b,check=true){busy=true;const A=g[a[0]][a[1]],B=g[b[0]][b[1]];g[a[0]][a[1]]=B;g[b[0]][b[1]]=A;
+ A.ox=(a[0]-b[0])*S;A.oy=(a[1]-b[1])*S;B.ox=-A.ox;B.oy=-A.oy;await wait(200);
+ if(check){const m=find();if(!m.length){await swap(a,b,false);busy=false;return}moves--;combo=0;await resolve()}busy=false}
+async function resolve(){let m;while((m=find()).length){combo++;const pts=m.length*10*combo;score+=pts;shake=combo>1?6:2;
+  let cx=0,cy=0;for(const [i,j] of m){const cell=g[i][j];cell.dying=1;cx+=i;cy+=j;burst(i*S+S/2,j*S+S/2)}
+  pops.push({t:(combo>1?`连击×${combo} `:"")+"+"+pts,x:cx/m.length*S+S/2,y:cy/m.length*S+S/2,l:1});
+  await wait(250);for(const [i,j] of m)g[i][j]=null;
+  for(let i=0;i<N;i++){let col=g[i].filter(Boolean),miss=N-col.length;const add=[];for(let k=0;k<miss;k++)add.push({t:rnd(),y:-(miss-k)*S-20,s:1});g[i]=[...add,...col]}
+  await wait(350)}
+ if(moves<=0){pops.push({t:"步数用完！最终 "+score,x:240,y:240,l:3})}}
+function burst(px,py){const col=["#ff5","#f8f","#5ff","#fff"];for(let k=0;k<12;k++){const a=Math.random()*7,v=Math.random()*5+1;parts.push({x:px,y:py,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,c:col[k%4]})}}
+let down=null;
+c.onpointerdown=e=>{if(busy||moves<=0)return;const r=c.getBoundingClientRect(),i=Math.floor((e.clientX-r.left)/r.width*N),j=Math.floor((e.clientY-r.top)/r.height*N);down=[i,j,e.clientX,e.clientY];
+ if(sel&&Math.abs(sel[0]-i)+Math.abs(sel[1]-j)==1){const s=sel;sel=null;swap(s,[i,j]);down=null}else sel=[i,j]};
+c.onpointermove=e=>{if(!down||busy)return;const dx=e.clientX-down[2],dy=e.clientY-down[3];if(Math.hypot(dx,dy)>25){const [i,j]=down;let ni=i,nj=j;if(Math.abs(dx)>Math.abs(dy))ni+=Math.sign(dx);else nj+=Math.sign(dy);down=null;sel=null;if(ni>=0&&ni<N&&nj>=0&&nj<N)swap([i,j],[ni,nj])}};
+onpointerup=()=>down=null;document.getElementById("re").onclick=init;
+function draw(){x.save();x.clearRect(0,0,480,480);x.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.85;
+ for(let i=0;i<N;i++)for(let j=0;j<N;j++){x.fillStyle=(i+j)%2?"#ffffff18":"#ffffff30";x.fillRect(i*S,j*S,S,S)}
+ x.textAlign="center";x.textBaseline="middle";
+ for(let i=0;i<N;i++)for(let j=0;j<N;j++){const cell=g[i][j];if(!cell)continue;const ty=j*S;cell.y+=(ty-cell.y)*.25;if(Math.abs(ty-cell.y)<.5)cell.y=ty;
+  cell.ox=(cell.ox||0)*.7;cell.oy=(cell.oy||0)*.7;if(cell.dying)cell.s=Math.max(0,cell.s-.12);
+  const isSel=sel&&sel[0]==i&&sel[1]==j,bob=isSel?Math.sin(performance.now()/120)*3:0;
+  x.save();x.translate(i*S+S/2+cell.ox,cell.y+S/2+cell.oy+bob);x.scale(cell.s*(isSel?1.12:1),cell.s*(isSel?1.12:1));
+  if(isSel){x.fillStyle="#fff6";x.beginPath();x.arc(0,0,27,0,7);x.fill()}x.font="38px serif";x.fillStyle="#000";x.fillText(GEMS[cell.t],0,2);x.restore()}
+ parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.15;p.l-=.03;x.globalAlpha=Math.max(0,p.l);x.fillStyle=p.c;x.beginPath();x.arc(p.x,p.y,3,0,7);x.fill()});parts=parts.filter(p=>p.l>0);
+ pops.forEach(p=>{p.y-=.8;p.l-=.015;x.globalAlpha=Math.max(0,Math.min(1,p.l));x.font="bold 26px system-ui";x.lineWidth=5;x.strokeStyle="#6a3fd0";x.strokeText(p.t,p.x,p.y);x.fillStyle="#fff";x.fillText(p.t,p.x,p.y)});pops=pops.filter(p=>p.l>0);
+ x.globalAlpha=1;x.restore();
+ document.getElementById("sc").textContent="⭐ 得分 "+score;document.getElementById("mv").textContent="👣 剩余步数 "+moves;document.getElementById("cb").textContent="🔥 连击 "+combo;
+ requestAnimationFrame(draw)}
+init();draw();
+if(new URLSearchParams(location.search).get("demo"))setTimeout(async()=>{outer:for(let i=0;i<N-1;i++)for(let j=0;j<N;j++){const a=[i,j],b=[i+1,j];const A=g[i][j],B=g[i+1][j];g[i][j]=B;g[i+1][j]=A;const ok=find().length;g[i][j]=A;g[i+1][j]=B;if(ok){swap(a,b);break outer}}},1200);
+</script></body></html>

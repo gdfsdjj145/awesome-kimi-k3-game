@@ -50,11 +50,21 @@
 
 > 🧪 参考实现 = 由 Grok Bot 代 kajian du 制作，**不是 Kimi 生成**，用来给 Kimi 复现做对照。欢迎用同一提示词跑 Kimi 后提交结果。
 
-| 效果 | 可玩链接 | 提示词 | 标记 |
-| --- | --- | --- | --- |
-| 卡牌十连抽动画 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/gacha-ten-pull/) | [prompt.md](effects/gacha-ten-pull/prompt.md) | 🧪 参考实现 |
-| 技能释放特效 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/skill-vfx/) | [prompt.md](effects/skill-vfx/prompt.md) | 🧪 参考实现 |
-| 体素小岛 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/voxel-island/) | [prompt.md](effects/voxel-island/prompt.md) | 🧪 参考实现 |
+| 类别 | 效果 | 可玩链接 | 提示词 | 标记 |
+| --- | --- | --- | --- | --- |
+| 玩法 | 平台跳跃 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/platformer/) | [prompt.md](effects/platformer/prompt.md) | 🧪 参考实现 |
+| 玩法 | 弹球 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/pinball/) | [prompt.md](effects/pinball/prompt.md) | 🧪 参考实现 |
+| 玩法 | 塔防 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/tower-defense/) | [prompt.md](effects/tower-defense/prompt.md) | 🧪 参考实现 |
+| 玩法 | 三消 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/match-three/) | [prompt.md](effects/match-three/prompt.md) | 🧪 参考实现 |
+| 玩法 | 跑酷 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/endless-runner/) | [prompt.md](effects/endless-runner/prompt.md) | 🧪 参考实现 |
+| 卡牌与抽卡 | 卡牌十连抽动画 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/gacha-ten-pull/) | [prompt.md](effects/gacha-ten-pull/prompt.md) | 🧪 参考实现 |
+| 卡牌与抽卡 | 卡牌翻转与稀有度展示 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/card-flip-rarity/) | [prompt.md](effects/card-flip-rarity/prompt.md) | 🧪 参考实现 |
+| 战斗特效 | 技能释放特效 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/skill-vfx/) | [prompt.md](effects/skill-vfx/prompt.md) | 🧪 参考实现 |
+| 战斗特效 | 爆炸与受击特效 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/explosion-hit-vfx/) | [prompt.md](effects/explosion-hit-vfx/prompt.md) | 🧪 参考实现 |
+| 3D 场景 | 体素小岛 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/voxel-island/) | [prompt.md](effects/voxel-island/prompt.md) | 🧪 参考实现 |
+| 3D 场景 | 低多边形小镇 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/lowpoly-town/) | [prompt.md](effects/lowpoly-town/prompt.md) | 🧪 参考实现 |
+| UI | 游戏 UI 套件（血条、背包、对话框、主菜单） | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/game-ui-kit/) | [prompt.md](effects/game-ui-kit/prompt.md) | 🧪 参考实现 |
+| 美术风格 | 同一小游戏的三种美术风格（像素 / 卡通渲染 / 赛博） | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/art-style-switch/) | [prompt.md](effects/art-style-switch/prompt.md) | 🧪 参考实现 |
 
 ## GitHub 项目
 

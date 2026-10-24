@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>三种美术风格切换 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}body{background:#111;color:#fff;font-family:system-ui,"PingFang SC",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
+#tabs{display:flex;gap:8px;margin-bottom:10px}#tabs button{padding:8px 18px;border-radius:999px;border:2px solid #555;background:#222;color:#fff;cursor:pointer;font-size:15px}#tabs button.on{border-color:#fff;background:#fff;color:#111}
+canvas{width:min(960px,96vw);aspect-ratio:16/9;border-radius:12px;image-rendering:auto}canvas.pix{image-rendering:pixelated}
+#tip{font-size:13px;opacity:.65;margin-top:8px}</style></head>
+<body><div id="tabs"><button data-s="pixel" class="on">👾 像素风</button><button data-s="toon">🎨 卡通渲染</button><button data-s="cyber">🌃 赛博朋克</button></div>
+<canvas id="c" width="960" height="540"></canvas><div id="tip">同一个小游戏「星星收集者」：← → / A D 移动，接住星星、躲开炸弹 · 按 1 / 2 / 3 或点上方按钮随时切换风格，游戏状态不变</div>
+<script>
+const c=document.getElementById("c"),X=c.getContext("2d"),W=960,H=540;
+// ===== 游戏逻辑（与风格无关）=====
+const G={px:480,vx:0,items:[],score:0,lives:3,t:0,spawn:0,fx:[],hurt:0,over:0};const keys={};
+onkeydown=e=>{keys[e.code]=1;if(e.key>="1"&&e.key<="3")setStyle(["pixel","toon","cyber"][e.key-1]);if(G.over&&e.code=="Space")restart()};onkeyup=e=>keys[e.code]=0;
+c.onpointermove=e=>{if(e.pointerType!="mouse"||e.buttons){const r=c.getBoundingClientRect();G.target=(e.clientX-r.left)/r.width*W}};c.onclick=()=>{if(G.over)restart()};
+function restart(){Object.assign(G,{items:[],score:0,lives:3,over:0,hurt:0,fx:[]})}
+const demo=new URLSearchParams(location.search).get("demo");
+function step(){G.t++;if(G.over)return;let ax=((keys.ArrowRight||keys.KeyD)?1:0)-((keys.ArrowLeft||keys.KeyA)?1:0);
+ if(demo){const s=G.items.filter(i=>i.k=="star").sort((a,b)=>b.y-a.y)[0];if(s)G.target=s.x}
+ if(G.target!=null&&!ax){G.px+=(G.target-G.px)*.15}G.vx=(G.vx+ax*1.6)*.85;G.px=Math.max(40,Math.min(W-40,G.px+G.vx));
+ if(--G.spawn<=0){G.items.push({x:40+Math.random()*(W-80),y:-30,vy:2.5+Math.random()*2+G.score/400,k:Math.random()<.28?"bomb":"star",r:Math.random()*6});G.spawn=28}
+ for(const it of G.items){it.y+=it.vy;it.r+=.05;if(it.y>H-90&&it.y<H-40&&Math.abs(it.x-G.px)<50){it.dead=1;if(it.k=="star"){G.score+=10;fx(it.x,it.y,"star")}else{G.lives--;G.hurt=20;fx(it.x,it.y,"boom");if(G.lives<=0)G.over=1}}if(it.y>H+30)it.dead=1}
+ G.items=G.items.filter(i=>!i.dead);G.fx.forEach(f=>{f.x+=f.vx;f.y+=f.vy;f.vy+=.2;f.l-=.03});G.fx=G.fx.filter(f=>f.l>0);G.hurt=Math.max(0,G.hurt-1)}
+function fx(x,y,k){for(let i=0;i<(k=="boom"?30:14);i++){const a=Math.random()*7,v=Math.random()*5+1;G.fx.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,l:1,k})}}
+// ===== 风格 1：像素 =====
+const off=document.createElement("canvas");off.width=240;off.height=135;const o=off.getContext("2d");
+const PAL={sky1:"#29366f",sky2:"#3b5dc9",gr:"#38b764",dirt:"#257179",star:"#ffcd75",bomb:"#1a1c2c",fuse:"#ef7d57",pl:"#b13e53",plH:"#f4f4f4",txt:"#f4f4f4"};
+function px(x,y,w,h,col){o.fillStyle=col;o.fillRect(Math.round(x),Math.round(y),w,h)}
+function drawPixel(){const s=4;o.fillStyle=PAL.sky1;o.fillRect(0,0,240,135);for(let y=0;y<80;y+=4)if(y%8==0)px(0,y+40,240,2,PAL.sky2);
+ for(let i=0;i<20;i++)px((i*37+G.t*.1)%240,(i*17)%60,1,1,"#fff");
+ for(let i=0;i<8;i++)px(i*32-((G.t*.3)%32),95,24,8,"#5d275d");
+ px(0,113,240,22,PAL.dirt);for(let i=0;i<240;i+=4)px(i,113,4,(i/4)%2?3:4,PAL.gr);
+ for(const it of G.items){const x=it.x/s,y=it.y/s;if(it.k=="star"){const b=(G.t>>3)%2;px(x-1,y-3,3,7,PAL.star);px(x-3,y-1,7,3,PAL.star);if(b)px(x,y,1,1,"#fff")}else{px(x-3,y-2,7,6,PAL.bomb);px(x-2,y-3,5,8,PAL.bomb);px(x+1,y-5,1,2,"#94b0c2");px(x+1,y-6,1,1,(G.t>>2)%2?PAL.fuse:"#ffcd75");px(x-2,y-1,1,1,"#566c86")}}
+ const pX=G.px/s,pY=113;if(!(G.hurt&&(G.t>>2)%2)){px(pX-6,pY-10,12,8,PAL.pl);px(pX-4,pY-14,8,4,PAL.pl);px(pX-2,pY-12,2,2,PAL.plH);px(pX+1,pY-12,2,2,PAL.plH);px(pX-7,pY-2,4,2,"#333c57");px(pX+3,pY-2,4,2,"#333c57")}
+ for(const f of G.fx)px(f.x/s,f.y/s,1,1,f.k=="star"?PAL.star:(f.l>.5?"#ef7d57":"#566c86"));
+ pixText(`SCORE ${G.score}`,4,4);pixText("♥".repeat(G.lives),200,4);if(G.over)pixText("GAME OVER  SPACE",80,60);
+ X.imageSmoothingEnabled=false;X.drawImage(off,0,0,W,H)}
+function pixText(t,x,y){o.font="8px monospace";o.textBaseline="top";o.fillStyle="#000";o.fillText(t,x+1,y+1);o.fillStyle=PAL.txt;o.fillText(t,x,y)}
+// ===== 风格 2：卡通渲染（描边 + 色阶）=====
+function ol(fn,fill,lw=5){X.lineWidth=lw;X.strokeStyle="#2a1a3a";X.lineJoin="round";X.beginPath();fn();X.fillStyle=fill;X.fill();X.stroke()}
+function starPath(x,y,R,r,rot){for(let i=0;i<10;i++){const a=rot+i*Math.PI/5-Math.PI/2,rr=i%2?r:R;i?X.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr):X.moveTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr)}X.closePath()}
+function drawToon(){const g=X.createLinearGradient(0,0,0,H);g.addColorStop(0,"#7fd3ff");g.addColorStop(.5,"#7fd3ff");g.addColorStop(.5,"#a8e4ff");g.addColorStop(1,"#a8e4ff");X.fillStyle=g;X.fillRect(0,0,W,H);
+ ol(()=>X.arc(820,90,50,0,7),"#ffe066");X.fillStyle="#fff3b0";X.beginPath();X.arc(805,75,20,0,7);X.fill();
+ for(let i=0;i<4;i++){const cx=((i*290+G.t*.4)%(W+200))-100,cy=70+i%2*50;ol(()=>{X.arc(cx,cy,30,Math.PI*.5,Math.PI*1.5);X.arc(cx+35,cy-20,36,Math.PI,0);X.arc(cx+75,cy,30,Math.PI*1.5,Math.PI*.5);X.closePath()},"#fff",4)}
+ ol(()=>{X.moveTo(-10,H-100);for(let x=0;x<=W+20;x+=80)X.quadraticCurveTo(x+40,H-150+Math.sin(x)*20,x+80,H-100);X.lineTo(W+20,H+10);X.lineTo(-10,H+10)},"#6fd36f");
+ X.fillStyle="#4fb84f";X.fillRect(0,H-70,W,70);X.strokeStyle="#2a1a3a";X.lineWidth=5;X.beginPath();X.moveTo(0,H-70);X.lineTo(W,H-70);X.stroke();
+ for(const it of G.items){if(it.k=="star"){ol(()=>starPath(it.x,it.y,22,10,it.r*.3),"#ffd23f");X.fillStyle="#fff7";X.beginPath();starPath(it.x-4,it.y-4,8,4,it.r*.3);X.fill()}
+  else{ol(()=>X.arc(it.x,it.y,18,0,7),"#4a4a6a");X.fillStyle="#6a6a90";X.beginPath();X.arc(it.x-6,it.y-6,6,0,7);X.fill();ol(()=>X.rect(it.x-5,it.y-26,10,8),"#888",3);X.fillStyle=(G.t>>2)%2?"#ff8a3a":"#ffd23f";X.beginPath();X.arc(it.x+4,it.y-30,5,0,7);X.fill()}}
+ if(!(G.hurt&&(G.t>>2)%2)){const y=H-70,x=G.px,sq=1+Math.sin(G.t*.2)*.03;X.save();X.translate(x,y);X.scale(1/sq,sq);
+  ol(()=>X.ellipse(0,-32,40,32,0,0,7),"#ff6b8b");X.fillStyle="#ff9bb0";X.beginPath();X.ellipse(-8,-44,22,12,0,0,7);X.fill();X.fillStyle="#d94a6b";X.beginPath();X.ellipse(10,-16,26,10,0,0,Math.PI);X.fill();
+  ol(()=>X.ellipse(-12,-38,8,11,0,0,7),"#fff",3);ol(()=>X.ellipse(12,-38,8,11,0,0,7),"#fff",3);X.fillStyle="#2a1a3a";X.beginPath();X.arc(-10,-36,4,0,7);X.arc(14,-36,4,0,7);X.fill();X.restore()}
+ for(const f of G.fx){X.globalAlpha=f.l;if(f.k=="star")ol(()=>starPath(f.x,f.y,8,4,0),"#ffd23f",2);else ol(()=>X.arc(f.x,f.y,10*f.l+3,0,7),f.l>.5?"#ff8a3a":"#999",2)}X.globalAlpha=1;
+ toonText(`得分 ${G.score}`,24,46,32);toonText("❤".repeat(G.lives),W-140,46,32);if(G.over)toonText("游戏结束！按空格",W/2-150,H/2,44)}
+function toonText(t,x,y,s){X.font=`900 ${s}px system-ui,"PingFang SC"`;X.lineWidth=8;X.strokeStyle="#2a1a3a";X.strokeText(t,x,y);X.fillStyle="#fff";X.fillText(t,x,y)}
+// ===== 风格 3：赛博朋克（霓虹 + 扫描线 + 色差）=====
+function drawCyber(){X.fillStyle="#0a0014";X.fillRect(0,0,W,H);const hz=H*.55;
+ const sg=X.createLinearGradient(0,0,0,hz);sg.addColorStop(0,"#0a0014");sg.addColorStop(1,"#3a0a4a");X.fillStyle=sg;X.fillRect(0,0,W,hz);
+ const sun=X.createLinearGradient(0,hz-200,0,hz);sun.addColorStop(0,"#ffde3a");sun.addColorStop(1,"#ff2a8a");X.fillStyle=sun;X.beginPath();X.arc(W/2,hz,150,Math.PI,0);X.fill();
+ X.fillStyle="#0a0014";for(let i=0;i<6;i++)X.fillRect(W/2-160,hz-10-i*18,320,3+i);
+ X.fillStyle="#120022";for(let i=0;i<24;i++){const bw=30+(i*37)%40,bh=40+(i*53)%120;X.fillRect(i*42-10,hz-bh,bw,bh);X.fillStyle="#ff2a8a55";if(i%3==0)X.fillRect(i*42,hz-bh+10,4,4);X.fillStyle="#120022"}
+ X.fillStyle="#05000a";X.fillRect(0,hz,W,H-hz);X.strokeStyle="#ff2a8a";X.lineWidth=1.5;X.shadowColor="#ff2a8a";X.shadowBlur=8;
+ for(let i=-20;i<=20;i++){X.beginPath();X.moveTo(W/2+i*20,hz);X.lineTo(W/2+i*160,H);X.stroke()}
+ for(let k=0;k<12;k++){const z=((k+G.t*.04)%12)/12,y=hz+(H-hz)*z*z;X.globalAlpha=z;X.beginPath();X.moveTo(0,y);X.lineTo(W,y);X.stroke()}X.globalAlpha=1;
+ const neon=(col,blur=18)=>{X.shadowColor=col;X.shadowBlur=blur;X.strokeStyle=col};
+ for(const it of G.items){if(it.k=="star"){neon("#3af7ff");X.lineWidth=3;X.beginPath();starPath(it.x,it.y,20,9,it.r*.3);X.stroke();X.fillStyle="#3af7ff33";X.fill()}
+  else{neon("#ff3a3a");X.lineWidth=3;X.beginPath();for(let i=0;i<6;i++){const a=i*Math.PI/3+it.r*.2;X.lineTo(it.x+Math.cos(a)*18,it.y+Math.sin(a)*18)}X.closePath();X.stroke();X.font="bold 16px monospace";X.fillStyle="#ff3a3a";X.textAlign="center";X.fillText("!",it.x,it.y+6);X.textAlign="left"}}
+ if(!(G.hurt&&(G.t>>2)%2)){const x=G.px,y=H-70;neon("#ff2a8a",24);X.lineWidth=3;X.beginPath();X.moveTo(x-45,y);X.lineTo(x-30,y-30);X.lineTo(x+30,y-30);X.lineTo(x+45,y);X.closePath();X.stroke();X.fillStyle="#ff2a8a22";X.fill();
+  neon("#3af7ff");X.beginPath();X.moveTo(x-18,y-30);X.lineTo(x-10,y-46);X.lineTo(x+10,y-46);X.lineTo(x+18,y-30);X.stroke();X.fillStyle="#3af7ff";X.fillRect(x-40,y+2,80,3)}
+ for(const f of G.fx){X.globalAlpha=f.l;X.fillStyle=f.k=="star"?"#3af7ff":"#ff3a3a";X.shadowColor=X.fillStyle;X.fillRect(f.x,f.y,3,3)}X.globalAlpha=1;
+ X.font="bold 26px monospace";neon("#3af7ff",12);X.fillStyle="#3af7ff";X.fillText(`SCORE//${String(G.score).padStart(5,"0")}`,24,44);X.fillStyle="#ff2a8a";X.shadowColor="#ff2a8a";X.fillText("▮".repeat(G.lives),W-120,44);
+ if(G.over){X.font="bold 48px monospace";X.fillStyle="#ff2a8a";X.textAlign="center";X.fillText("SYSTEM FAILURE",W/2,H/2);X.font="20px monospace";X.fillText("按空格重启",W/2,H/2+40);X.textAlign="left"}
+ X.shadowBlur=0;
+ // 色差：把画面错位叠加红/青通道
+ X.globalCompositeOperation="lighter";X.globalAlpha=.18;X.drawImage(c,2,0);X.drawImage(c,-2,0);X.globalAlpha=1;X.globalCompositeOperation="source-over";
+ X.fillStyle="#0000002a";for(let y=0;y<H;y+=3)X.fillRect(0,y,W,1);
+ if(Math.random()<.03){const gy=Math.random()*H;X.drawImage(c,0,gy,W,12,(Math.random()-.5)*30,gy,W,12)}}
+// ===== 切换 =====
+let style="pixel",fade=0;const R={pixel:drawPixel,toon:drawToon,cyber:drawCyber};
+function setStyle(s){if(s==style)return;style=s;fade=1;c.classList.toggle("pix",s=="pixel");document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.s==s));history.replaceState(null,"","?style="+s+(demo?"&demo=1":""))}
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>setStyle(b.dataset.s));
+const q=new URLSearchParams(location.search).get("style");if(q&&R[q])setStyle(q);fade=0;
+(function loop(){step();X.save();R[style]();X.restore();if(fade>0){X.fillStyle=`rgba(255,255,255,${fade})`;X.fillRect(0,0,W,H);fade-=.08}requestAnimationFrame(loop)})();
+</script></body></html>

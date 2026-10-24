@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>低多边形小镇 · 参考实现</title>
+<style>*{margin:0}body{overflow:hidden;font-family:system-ui,"PingFang SC",sans-serif}#ui{position:fixed;top:12px;left:12px;background:#0007;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.8}
+button{padding:4px 10px;border-radius:6px;border:none;cursor:pointer;margin-right:4px}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script></head>
+<body><div id="ui">🏘️ 低多边形小镇 · 拖动旋转 / 滚轮缩放 / 右键平移<br><button id="rot">自动环绕：开</button><button id="ng">切换白天/夜晚</button><button id="re">重新生成</button></div>
+<script type="module">
+import * as THREE from "three";import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+const R=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});R.setPixelRatio(Math.min(devicePixelRatio,2));R.setSize(innerWidth,innerHeight);R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;document.body.appendChild(R.domElement);
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,.1,400);cam.position.set(40,32,40);
+const ctl=new OrbitControls(cam,R.domElement);ctl.enableDamping=true;ctl.autoRotate=true;ctl.autoRotateSpeed=.6;ctl.maxPolarAngle=Math.PI*.45;ctl.minDistance=15;ctl.maxDistance=110;
+const hemi=new THREE.HemisphereLight(0xdff1ff,0x6b8f4e,.7);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xfff2d6,1.5);sun.position.set(30,45,20);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-40,right:40,top:40,bottom:-40,far:150});scene.add(sun);
+const M=c=>new THREE.MeshStandardMaterial({color:c,flatShading:true,roughness:.9});
+const town=new THREE.Group();scene.add(town);let lamps=[],windows=[],cars=[],night=false,seed=1;
+const rand=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+function mesh(geo,mat,x,y,z,parent=town){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;parent.add(m);return m}
+function jitter(geo,a){const p=geo.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,p.getY(i)+(rand()-.5)*a);geo.computeVertexNormals();return geo}
+const winMat=new THREE.MeshStandardMaterial({color:0x334455,emissive:0xffc860,emissiveIntensity:0,flatShading:true});
+function house(x,z,rot){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=rot;town.add(g);
+ const w=3+rand()*2,d=3+rand()*2,h=2.5+rand()*2.5,wall=[0xf2e2c4,0xe8b4a0,0xc9dbe8,0xf5f0e1,0xd9c7f0][Math.floor(rand()*5)],roof=[0xc0504d,0x4f6d9a,0x8b5a3c,0x5c8a5a][Math.floor(rand()*4)];
+ mesh(new THREE.BoxGeometry(w,h,d),M(wall),0,h/2,0,g);
+ const rf=mesh(new THREE.ConeGeometry(Math.max(w,d)*.78,2+rand()*1.5,4),M(roof),0,h+1,0,g);rf.rotation.y=Math.PI/4;rf.scale.set(w/Math.max(w,d)*1.05,1,d/Math.max(w,d)*1.05);
+ mesh(new THREE.BoxGeometry(.9,1.6,.1),M(0x6b4226),0,.8,d/2+.02,g);
+ for(const sx of[-1,1]){const wm=mesh(new THREE.BoxGeometry(.7,.7,.1),winMat,sx*w/3.2,h*.62,d/2+.03,g);windows.push(wm)}
+ if(rand()>.5)mesh(new THREE.BoxGeometry(.5,1.4,.5),M(0x888888),w/4,h+1.2,-d/5,g)}
+function tree(x,z){const s=.7+rand()*.8;mesh(new THREE.CylinderGeometry(.15*s,.22*s,1.2*s,5),M(0x7a5230),x,.6*s,z);
+ const type=rand();if(type<.5){mesh(new THREE.ConeGeometry(1.1*s,2.4*s,6),M(0x3f8f4a),x,2.1*s,z);mesh(new THREE.ConeGeometry(.8*s,1.8*s,6),M(0x4fa35a),x,3*s,z)}
+ else mesh(new THREE.IcosahedronGeometry(1.2*s,0),M(rand()>.7?0xe0a030:0x5aa84f),x,2.2*s,z)}
+function lamp(x,z){mesh(new THREE.CylinderGeometry(.07,.07,2.6,5),M(0x333333),x,1.3,z);const b=mesh(new THREE.SphereGeometry(.22,6,4),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffd27a,emissiveIntensity:0}),x,2.7,z);
+ const L=new THREE.PointLight(0xffc870,0,12,1.5);L.position.set(x,2.6,z);town.add(L);lamps.push([b,L])}
+function car(lane,dir,col){const g=new THREE.Group();mesh(new THREE.BoxGeometry(1.8,.6,1),M(col),0,.55,0,g);mesh(new THREE.BoxGeometry(1,.5,.9),M(0xdddddd),-.1,1.05,0,g);
+ for(const [a,b] of[[-.6,-.5],[.6,-.5],[-.6,.5],[.6,.5]]){const wh=mesh(new THREE.CylinderGeometry(.22,.22,.15,8),M(0x222222),a,.25,b,g);wh.rotation.x=Math.PI/2}
+ town.add(g);cars.push({g,lane,dir,t:rand()*60-30,sp:.08+rand()*.06})}
+function build(){town.clear();lamps=[];windows=[];cars=[];
+ mesh(jitter(new THREE.CylinderGeometry(36,38,2,24,3),1.2),M(0x7cb85a),0,-1,0);
+ const road=M(0x55585e),line=M(0xf2f2f2);mesh(new THREE.BoxGeometry(70,.05,4),road,0,.03,0);mesh(new THREE.BoxGeometry(4,.05,70),road,0,.031,0);
+ for(let i=-32;i<=32;i+=4){if(Math.abs(i)<3)continue;mesh(new THREE.BoxGeometry(1.6,.06,.15),line,i,.06,0);mesh(new THREE.BoxGeometry(.15,.06,1.6),line,0,.061,i)}
+ const water=mesh(new THREE.CylinderGeometry(5,5,.2,10),new THREE.MeshStandardMaterial({color:0x4aa3df,flatShading:true,roughness:.2,metalness:.1,transparent:true,opacity:.9}),-16,.05,-16);
+ mesh(new THREE.BoxGeometry(1.2,4,1.2),M(0xd9d0c0),14,2,14);const top=mesh(new THREE.ConeGeometry(1.2,2,4),M(0xc0504d),14,5,14);top.rotation.y=Math.PI/4;// 钟楼
+ for(let qx of[-1,1])for(let qz of[-1,1])for(let k=0;k<4;k++){const px=qx*(7+(k%2)*9)+(rand()-.5)*2,pz=qz*(7+Math.floor(k/2)*9)+(rand()-.5)*2;if(qx==-1&&qz==-1&&k==3)continue;if(qx==1&&qz==1&&k==3)continue;house(px,pz,qz>0?Math.PI:0)}
+ for(let i=0;i<45;i++){const a=rand()*Math.PI*2,r=24+rand()*10;tree(Math.cos(a)*r,Math.sin(a)*r)}for(let i=0;i<10;i++)tree(-16+(rand()-.5)*14,-16+(rand()>.5?7:-7));
+ for(let i=-28;i<=28;i+=10){lamp(i,2.8);lamp(2.8,i)}
+ car("x",1,0xe74c3c);car("x",-1,0x3498db);car("z",1,0xf1c40f);car("z",-1,0x2ecc71);
+ const clouds=new THREE.Group();clouds.name="clouds";town.add(clouds);for(let i=0;i<8;i++){const cg=new THREE.Group();for(let k=0;k<3;k++){const m=new THREE.Mesh(new THREE.IcosahedronGeometry(1.5+rand(),0),new THREE.MeshStandardMaterial({color:0xffffff,flatShading:true}));m.position.set(k*1.6,rand()*.6,rand());cg.add(m)}cg.position.set((rand()-.5)*70,16+rand()*6,(rand()-.5)*70);clouds.add(cg)}
+ setNight(night)}
+function setNight(n){night=n;scene.background=new THREE.Color(n?0x0d1530:0x9fd6ff);scene.fog=new THREE.Fog(scene.background,70,160);sun.intensity=n?.15:1.5;sun.color.set(n?0x8899ff:0xfff2d6);hemi.intensity=n?.2:.7;
+ winMat.emissiveIntensity=n?1.4:0;lamps.forEach(([b,L])=>{b.material.emissiveIntensity=n?2:0;L.intensity=n?6:0})}
+build();
+document.getElementById("rot").onclick=e=>{ctl.autoRotate=!ctl.autoRotate;e.target.textContent="自动环绕："+(ctl.autoRotate?"开":"关")};
+document.getElementById("ng").onclick=()=>setNight(!night);document.getElementById("re").onclick=()=>{seed=Math.floor(Math.random()*1e6)+1;build()};
+if(new URLSearchParams(location.search).get("night"))setNight(true);
+const clk=new THREE.Clock();
+(function loop(){requestAnimationFrame(loop);const t=clk.getElapsedTime();
+ for(const c of cars){c.t+=c.sp*c.dir;if(c.t>34)c.t=-34;if(c.t<-34)c.t=34;const off=c.dir>0?1:-1;
+  if(c.lane=="x"){c.g.position.set(c.t,0,off);c.g.rotation.y=c.dir>0?0:Math.PI}else{c.g.position.set(-off,0,c.t);c.g.rotation.y=c.dir>0?-Math.PI/2:Math.PI/2}}
+ const cl=town.getObjectByName("clouds");if(cl)cl.children.forEach((g,i)=>{g.position.x+=.02;if(g.position.x>40)g.position.x=-40});
+ ctl.update();R.render(scene,cam)})();
+addEventListener("resize",()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();R.setSize(innerWidth,innerHeight)});
+</script></body></html>

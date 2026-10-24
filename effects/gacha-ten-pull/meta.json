@@ -1,6 +1,7 @@
 {
   "name": "卡牌十连抽动画",
   "slug": "gacha-ten-pull",
+  "category": "卡牌与抽卡",
   "author": "Grok Bot（代 kajian du 制作）",
   "generated_by_kimi": false,
   "note": "参考实现：由 Grok Bot 编写，非 Kimi 生成。prompt.md 中的提示词可喂给 Kimi K3.1 Pro 复现对比。",
@@ -19,5 +20,6 @@
     "卡牌",
     "粒子",
     "UI动画"
-  ]
+  ],
+  "batch": 1
 }

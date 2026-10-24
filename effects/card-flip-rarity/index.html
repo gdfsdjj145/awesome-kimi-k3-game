@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>卡牌翻转与稀有度展示 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}body{background:#0b0e18;color:#fff;font-family:system-ui,"PingFang SC",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 10px;overflow-x:hidden}
+h1{font-size:24px;letter-spacing:3px}p.sub{opacity:.6;font-size:13px;margin:6px 0 22px}
+#row{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;perspective:1200px}
+.card{width:180px;height:260px;position:relative;transform-style:preserve-3d;transition:transform .8s cubic-bezier(.3,1.4,.5,1);cursor:pointer}
+.card.flip{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:14px;backface-visibility:hidden;overflow:hidden}
+.back{background:radial-gradient(circle at 50% 40%,#2c3a70,#11152b);border:3px solid #4a5aa0;display:flex;align-items:center;justify-content:center;font-size:56px;color:#7f8fe0}
+.front{transform:rotateY(180deg);border:4px solid var(--c);background:linear-gradient(170deg,var(--b1),var(--b2));display:flex;flex-direction:column;align-items:center;padding:14px 10px}
+.front .rar{font-size:12px;letter-spacing:2px;padding:2px 10px;border-radius:999px;background:var(--c);color:#111;font-weight:700}
+.front .art{font-size:76px;margin:16px 0 8px;filter:drop-shadow(0 0 12px var(--c))}
+.front .nm{font-size:17px;font-weight:700}.front .st{color:var(--c);margin-top:4px;letter-spacing:2px}.front .ds{font-size:11px;opacity:.75;margin-top:8px;text-align:center;line-height:1.5}
+.shine{position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.5) 45%,transparent 60%);background-size:250% 100%;mix-blend-mode:overlay;pointer-events:none;animation:sh 2.6s linear infinite}
+@keyframes sh{from{background-position:150% 0}to{background-position:-100% 0}}
+.holo{position:absolute;inset:0;background:linear-gradient(var(--ang,120deg),#ff000055,#ffff0055,#00ff0055,#00ffff55,#0000ff55,#ff00ff55);mix-blend-mode:color-dodge;opacity:.55;pointer-events:none}
+.N{--c:#a9b1bd;--b1:#3a3f48;--b2:#1f2228}.R{--c:#4fa3ff;--b1:#18406e;--b2:#0e1f38}.SR{--c:#c06bff;--b1:#41206b;--b2:#1d0f33}.SSR{--c:#ffd24a;--b1:#6b4800;--b2:#2a1a00}.UR{--c:#ff5fa2;--b1:#5a1040;--b2:#16051a}
+.SR.flip .front{box-shadow:0 0 22px #c06bff}.SSR.flip .front{box-shadow:0 0 30px #ffd24a,0 0 60px #ff9a00}.UR.flip .front{box-shadow:0 0 30px #ff5fa2,0 0 70px #7b5cff}
+.aura{position:absolute;inset:-30px;border-radius:30px;pointer-events:none;opacity:0;transition:opacity .6s .4s;z-index:-1}
+.SSR.flip .aura{opacity:1;background:conic-gradient(from 0deg,transparent,#ffd24a,transparent 25%,#ffd24a,transparent 50%,#ffd24a,transparent 75%);filter:blur(14px);animation:sp 3s linear infinite}
+.UR.flip .aura{opacity:1;background:conic-gradient(#ff5fa2,#ffd24a,#4fe3ff,#7b5cff,#ff5fa2);filter:blur(18px);animation:sp 2s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.lbl{text-align:center;margin-top:10px;font-size:13px;opacity:.7}
+.btns{margin-top:30px;display:flex;gap:12px}button{padding:9px 20px;border-radius:999px;border:1px solid #4a5aa0;background:#1b2140;color:#fff;cursor:pointer;font-size:14px}
+canvas{position:fixed;inset:0;pointer-events:none;z-index:9}</style></head>
+<body><h1>✦ 稀有度图鉴 ✦</h1><p class="sub">点击卡牌翻转 · 鼠标悬停正面可 3D 倾斜 · N / R / SR / SSR / UR 五档光效</p>
+<div id="row"></div><div class="btns"><button id="all">全部翻开</button><button id="rst">全部盖回</button><button id="shuf">随机洗牌</button></div><canvas id="fx"></canvas>
+<script>
+const DATA=[["N","普通","🪵","木剑士兵",1,"最常见的伙伴，朴实可靠。"],["R","稀有","🛡️","钢盾卫士",2,"坚固的盾牌守护队友。"],["SR","史诗","🔮","星辉法师",3,"操纵星光的魔法师，附带紫色光晕。"],["SSR","传说","🐉","黄金巨龙",4,"金色旋转光环 + 扫光 + 粒子爆发。"],["UR","神话","🌌","虚空女神",5,"彩虹全息、炫彩光环与全屏闪光。"]];
+const row=document.getElementById("row");let cards=[];
+function build(order){row.innerHTML="";cards=[];order.forEach(([k,zh,art,nm,s,ds])=>{const w=document.createElement("div");
+ w.innerHTML=`<div class="card ${k}"><div class="aura"></div><div class="face back">✦</div><div class="face front"><span class="rar">${k} · ${zh}</span><div class="art">${art}</div><div class="nm">${nm}</div><div class="st">${"★".repeat(s)}</div><div class="ds">${ds}</div>${s>=4?'<div class="shine"></div>':""}${s==5?'<div class="holo"></div>':""}</div></div><div class="lbl">${k}</div>`;
+ const cd=w.firstChild;cd.onclick=()=>toggle(cd,s);cd.onmousemove=e=>{if(!cd.classList.contains("flip"))return;const r=cd.getBoundingClientRect(),px=(e.clientX-r.left)/r.width-.5,py=(e.clientY-r.top)/r.height-.5;
+  cd.style.transition="transform .1s";cd.style.transform=`rotateY(${180-px*30}deg) rotateX(${py*20}deg)`;cd.style.setProperty("--ang",(120+px*120)+"deg")};
+ cd.onmouseleave=()=>{cd.style.transition="";cd.style.transform=""};row.appendChild(w);cards.push([cd,s])})}
+build(DATA);
+const fx=document.getElementById("fx"),fc=fx.getContext("2d");let P=[],flashA=0;function rs(){fx.width=innerWidth;fx.height=innerHeight}rs();addEventListener("resize",rs);
+function toggle(cd,s){cd.style.transform="";const f=cd.classList.toggle("flip");if(!f||s<3)return;
+ setTimeout(()=>{const r=cd.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,cols=s==3?["#c06bff","#fff"]:s==4?["#ffd24a","#fff","#ff9a00"]:["#ff5fa2","#ffd24a","#4fe3ff","#7b5cff","#fff"];
+  for(let i=0;i<(s-2)*50;i++){const a=Math.random()*7,v=Math.random()*(s*2)+2;P.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,c:cols[i%cols.length],r:Math.random()*3+1})}if(s==5)flashA=.8},400)}
+function loop(){fc.clearRect(0,0,fx.width,fx.height);if(flashA>0){fc.fillStyle=`rgba(255,240,255,${flashA})`;fc.fillRect(0,0,fx.width,fx.height);flashA-=.04}
+ fc.globalCompositeOperation="lighter";P.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vx*=.97;p.vy=p.vy*.97+.08;p.l-=.012;fc.globalAlpha=Math.max(0,p.l);fc.fillStyle=p.c;fc.beginPath();fc.arc(p.x,p.y,p.r,0,7);fc.fill()});
+ fc.globalCompositeOperation="source-over";fc.globalAlpha=1;P=P.filter(p=>p.l>0);requestAnimationFrame(loop)}loop();
+const flipAll=()=>cards.forEach(([cd,s],i)=>setTimeout(()=>{if(!cd.classList.contains("flip"))toggle(cd,s)},i*250));
+document.getElementById("all").onclick=flipAll;document.getElementById("rst").onclick=()=>cards.forEach(([cd])=>{cd.classList.remove("flip");cd.style.transform=""});
+document.getElementById("shuf").onclick=()=>build([...DATA].sort(()=>Math.random()-.5));
+if(new URLSearchParams(location.search).get("demo"))setTimeout(flipAll,300);
+</script></body></html>

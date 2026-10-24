@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>游戏 UI 套件 · 参考实现</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--gold:#e8c27a;--panel:linear-gradient(180deg,#2a2236f2,#17121ff2);--bd:2px solid #8a6a3a}
+body{height:100vh;overflow:hidden;color:#f3e9d8;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cpath d='M0 40h80M40 0v80' stroke='%23ffffff08'/%3E%3C/svg%3E"),radial-gradient(ellipse at 50% 30%,#3b2f55,#0d0a14 70%)}
+.panel{background:var(--panel);border:var(--bd);border-radius:10px;box-shadow:0 0 0 1px #000,inset 0 0 0 1px #ffffff14,0 8px 30px #0008}
+.btn{padding:9px 18px;border:2px solid #8a6a3a;border-radius:8px;background:linear-gradient(180deg,#5a4630,#3a2c1c);color:var(--gold);font-size:15px;cursor:pointer;transition:.15s;font-family:inherit}
+.btn:hover{filter:brightness(1.25);transform:translateY(-1px);box-shadow:0 0 12px #e8c27a55}.btn:active{transform:translateY(1px)}
+/* 主菜单 */
+#menu{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(ellipse at center,#2d1f45ee,#07050bf5);transition:opacity .5s}
+#menu.hide{opacity:0;pointer-events:none}
+#menu h1{font-size:56px;letter-spacing:10px;color:var(--gold);text-shadow:0 0 20px #e8a83a,0 4px 0 #6b4a1a;animation:float 3s ease-in-out infinite}
+#menu .sub{opacity:.6;margin:6px 0 30px;letter-spacing:4px}
+#menu .btn{width:240px;margin:6px;font-size:18px;padding:12px}
+@keyframes float{50%{transform:translateY(-8px)}}
+#settings{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:#0008}
+#settings .panel{padding:22px 26px;width:320px}#settings label{display:flex;justify-content:space-between;margin:10px 0;font-size:14px}
+/* HUD */
+#hud{position:fixed;top:16px;left:16px;display:flex;gap:12px;align-items:center;padding:10px 14px}
+.avatar{width:64px;height:64px;border-radius:50%;border:3px solid var(--gold);background:radial-gradient(#6a4fa0,#2a1f40);display:flex;align-items:center;justify-content:center;font-size:34px;position:relative}
+.avatar b{position:absolute;bottom:-6px;right:-6px;background:#8a2a2a;border:2px solid var(--gold);border-radius:50%;width:24px;height:24px;font-size:11px;display:flex;align-items:center;justify-content:center}
+.bars{width:240px}.bar{height:16px;border-radius:8px;background:#0008;border:1px solid #000;position:relative;overflow:hidden;margin:4px 0}
+.bar i{position:absolute;inset:0;width:100%;transition:width .35s ease-out}.bar .lag{background:#fff8;transition:width .9s .3s ease-out}
+.bar span{position:absolute;inset:0;font-size:11px;text-align:center;line-height:15px;text-shadow:0 1px 2px #000}
+.hp i.v{background:linear-gradient(180deg,#ff6a5a,#b8231a)}.mp i.v{background:linear-gradient(180deg,#5ab0ff,#1a4fb8)}.xp{height:6px}.xp i.v{background:linear-gradient(90deg,#e8c27a,#fff2b0)}
+.hp.low i.v{animation:blink .6s infinite}@keyframes blink{50%{filter:brightness(1.8)}}
+/* 技能栏 */
+#bar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;padding:8px}
+.slot{width:58px;height:58px;border:2px solid #6b5230;border-radius:8px;background:#0006;display:flex;align-items:center;justify-content:center;font-size:28px;position:relative;cursor:pointer}
+.slot small{position:absolute;top:2px;left:4px;font-size:10px;color:var(--gold)}
+/* 背包 */
+#inv{position:fixed;right:16px;top:16px;width:340px;padding:14px;display:none}
+.title{display:flex;justify-content:space-between;align-items:center;color:var(--gold);font-size:17px;margin-bottom:10px;border-bottom:1px solid #8a6a3a66;padding-bottom:8px}
+.x{cursor:pointer;opacity:.7}.tabs{display:flex;gap:4px;margin-bottom:8px}.tab{flex:1;text-align:center;padding:4px;font-size:12px;border-radius:5px;background:#0005;cursor:pointer}.tab.on{background:#8a6a3a;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.cell{aspect-ratio:1;background:#0007;border:1px solid #3a2f40;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;position:relative;cursor:grab}
+.cell.r1{box-shadow:inset 0 0 0 2px #4fa3ff}.cell.r2{box-shadow:inset 0 0 0 2px #c06bff}.cell.r3{box-shadow:inset 0 0 0 2px #ffb03a,0 0 8px #ffb03a}
+.cell em{position:absolute;bottom:1px;right:3px;font-size:10px;font-style:normal}.cell.over{background:#e8c27a33}
+#tipbox{position:fixed;z-index:80;pointer-events:none;padding:10px 12px;font-size:12px;width:200px;display:none;line-height:1.6}
+.gold{margin-top:10px;font-size:13px;display:flex;justify-content:space-between}
+/* 对话框 */
+#dlg{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);width:min(760px,92vw);padding:16px 20px 16px 120px;display:none;min-height:120px}
+#dlg .por{position:absolute;left:14px;bottom:14px;width:92px;height:92px;border-radius:10px;border:2px solid var(--gold);background:radial-gradient(#4a6a9a,#1a2238);display:flex;align-items:center;justify-content:center;font-size:52px}
+#dlg .nm{color:var(--gold);font-weight:700;margin-bottom:6px}#dlg .tx{font-size:16px;line-height:1.7;min-height:54px}
+#dlg .ch{margin-top:8px;display:flex;flex-direction:column;gap:5px}#dlg .ch div{padding:5px 10px;border-radius:6px;background:#0005;cursor:pointer;font-size:14px}#dlg .ch div:hover{background:#8a6a3a88}
+#dlg .nx{position:absolute;right:14px;bottom:8px;animation:float 1s infinite;color:var(--gold)}
+#ctl{position:fixed;left:16px;bottom:16px;display:flex;flex-direction:column;gap:6px}
+#toast{position:fixed;top:110px;left:50%;transform:translateX(-50%);padding:8px 20px;opacity:0;transition:.3s}
+</style></head><body>
+<div id="menu"><h1>星落之境</h1><div class="sub">— 游戏 UI 套件演示 —</div>
+ <button class="btn" data-a="start">开始游戏</button><button class="btn" data-a="cont">继续冒险</button><button class="btn" data-a="set">设置</button><button class="btn" data-a="about">关于</button></div>
+<div id="settings"><div class="panel"><div class="title">⚙️ 设置<span class="x" data-a="closeset">✕</span></div>
+ <label>主音量 <input type="range" value="80"></label><label>音效 <input type="range" value="60"></label><label>画质 <select><option>高</option><option>中</option><option>低</option></select></label><label>显示伤害数字 <input type="checkbox" checked></label>
+ <button class="btn" data-a="closeset" style="width:100%;margin-top:8px">保存</button></div></div>
+<div id="hud" class="panel"><div class="avatar">🧝<b id="lv">12</b></div><div class="bars">
+ <div style="font-size:13px;color:var(--gold)">艾琳 · 游侠</div>
+ <div class="bar hp" id="hpb"><i class="lag"></i><i class="v"></i><span></span></div>
+ <div class="bar mp" id="mpb"><i class="lag"></i><i class="v"></i><span></span></div>
+ <div class="bar xp" id="xpb"><i class="v"></i></div></div></div>
+<div id="bar" class="panel"></div>
+<div id="inv" class="panel"><div class="title">🎒 背包<span class="x" data-a="inv">✕</span></div>
+ <div class="tabs"><div class="tab on">全部</div><div class="tab">装备</div><div class="tab">消耗</div><div class="tab">材料</div></div>
+ <div class="grid" id="grid"></div><div class="gold"><span>🪙 12,480</span><span>💎 36</span><span id="cap"></span></div></div>
+<div id="tipbox" class="panel"></div>
+<div id="dlg" class="panel"><div class="por" id="por">🧙</div><div class="nm" id="dnm"></div><div class="tx" id="dtx"></div><div class="ch" id="dch"></div><div class="nx" id="dnx">▼</div></div>
+<div id="ctl"><button class="btn" data-a="dmg">受到伤害</button><button class="btn" data-a="heal">治疗</button><button class="btn" data-a="inv">背包 (B)</button><button class="btn" data-a="talk">对话 (T)</button><button class="btn" data-a="menu">主菜单 (Esc)</button></div>
+<div id="toast" class="panel"></div>
+<script>
+const $=s=>document.querySelector(s);const st={hp:860,hpM:1000,mp:320,mpM:400,xp:62};
+function bars(){for(const [k,v,m] of[["hp",st.hp,st.hpM],["mp",st.mp,st.mpM]]){const b=$("#"+k+"b"),p=v/m*100+"%";b.querySelector(".v").style.width=p;b.querySelector(".lag").style.width=p;b.querySelector("span").textContent=`${Math.round(v)} / ${m}`}
+ $("#hpb").classList.toggle("low",st.hp/st.hpM<.25);$("#xpb .v").style.width=st.xp+"%"}bars();
+function toast(t){const e=$("#toast");e.textContent=t;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,1400)}
+const skills=[["⚔️","1"],["🏹","2"],["🛡️","3"],["✨","4"],["🧪","5"],["🌀","6"]];
+skills.forEach(([ic,k])=>{const s=document.createElement("div");s.className="slot";s.innerHTML=`<small>${k}</small>${ic}`;s.onclick=()=>useSkill(k);$("#bar").appendChild(s)});
+function useSkill(k){if(st.mp<40){toast("法力不足");return}st.mp-=40;bars();toast("释放技能 "+k);setTimeout(()=>{st.mp=Math.min(st.mpM,st.mp+20);bars()},1500)}
+const ITEMS=[["🗡️","霜刃匕首",3,"攻击 +48 · 暴击 +12%","传说"],["🛡️","橡木盾",1,"防御 +22","稀有"],["🧪","生命药水",0,"恢复 300 生命",null,12],["🔮","法力水晶",2,"法力上限 +80","史诗"],["🏹","精灵长弓",2,"攻击 +35 · 射程 +2","史诗"],["🍖","烤肉",0,"缓慢恢复生命",null,5],["💍","红宝石戒指",3,"全属性 +10","传说"],["📜","传送卷轴",1,"回到最近的城镇",null,3],["🪨","铁矿石",0,"锻造材料",null,40],["🌿","月光草",1,"炼金材料",null,9],["👢","迅捷之靴",2,"移速 +15%","史诗"],["🔑","古老钥匙",1,"似乎能打开某扇门"]];
+const slots=Array(30).fill(null);ITEMS.forEach((it,i)=>slots[i]=it);
+function renderInv(){const g=$("#grid");g.innerHTML="";slots.forEach((it,i)=>{const c=document.createElement("div");c.className="cell"+(it&&it[2]?" r"+it[2]:"");c.draggable=!!it;
+ if(it){c.innerHTML=it[0]+(it[5]?`<em>${it[5]}</em>`:"");c.onmouseenter=e=>showTip(it,e);c.onmousemove=moveTip;c.onmouseleave=()=>$("#tipbox").style.display="none";
+  c.ondblclick=()=>{if(it[0]=="🧪"){st.hp=Math.min(st.hpM,st.hp+300);bars();it[5]--;if(!it[5])slots[i]=null;renderInv();toast("使用了生命药水")}}}
+ c.ondragstart=e=>e.dataTransfer.setData("i",i);c.ondragover=e=>{e.preventDefault();c.classList.add("over")};c.ondragleave=()=>c.classList.remove("over");
+ c.ondrop=e=>{const a=+e.dataTransfer.getData("i");[slots[a],slots[i]]=[slots[i],slots[a]];renderInv()};g.appendChild(c)});$("#cap").textContent=`${slots.filter(Boolean).length}/30`}
+const RC=["#ccc","#4fa3ff","#c06bff","#ffb03a"];
+function showTip(it,e){const t=$("#tipbox");t.innerHTML=`<b style="color:${RC[it[2]]}">${it[1]}</b>${it[4]?` <small style="opacity:.6">${it[4]}</small>`:""}<br>${it[3]}${it[0]=="🧪"?"<br><small style='opacity:.6'>双击使用</small>":""}`;t.style.display="block";moveTip(e)}
+function moveTip(e){const t=$("#tipbox");t.style.left=Math.min(innerWidth-220,e.clientX+14)+"px";t.style.top=e.clientY+14+"px"}
+renderInv();
+const DLG=[{n:"老法师 墨林",p:"🧙",t:"年轻的游侠，你终于来了。北方的星辰正在坠落，村子里的人都很不安。"},{n:"老法师 墨林",p:"🧙",t:"我需要你去古塔取回「星落之核」。你愿意接受这个委托吗？",ch:["我愿意！（接受任务）","报酬是多少？","我再考虑一下"]},{n:"艾琳",p:"🧝",t:"交给我吧，天亮之前就出发。"}];
+let di=0,typing=null;
+function showDlg(i){di=i;const d=DLG[i];$("#dlg").style.display="block";$("#dnm").textContent=d.n;$("#por").textContent=d.p;$("#dch").innerHTML="";$("#dnx").style.display="none";
+ let k=0;clearInterval(typing);$("#dtx").textContent="";typing=setInterval(()=>{$("#dtx").textContent=d.t.slice(0,++k);if(k>=d.t.length){clearInterval(typing);typing=null;
+  if(d.ch)d.ch.forEach((c,j)=>{const e=document.createElement("div");e.textContent="▸ "+c;e.onclick=ev=>{ev.stopPropagation();if(j==0){toast("✅ 接受任务：星落之核");st.xp=Math.min(100,st.xp+15);bars()}if(j==1)toast("墨林：500 金币，外加一把好弓。");if(j==2){$("#dlg").style.display="none";return}showDlg(2)};$("#dch").appendChild(e)});else $("#dnx").style.display="block"}},35)}
+$("#dlg").onclick=()=>{const d=DLG[di];if(typing){clearInterval(typing);typing=null;$("#dtx").textContent=d.t;if(!d.ch)$("#dnx").style.display="block";else showDlg(di);return}if(d.ch)return;if(di+1<DLG.length)showDlg(di+1);else $("#dlg").style.display="none"};
+const act={start:()=>{$("#menu").classList.add("hide");toast("欢迎来到星落之境")},cont:()=>{$("#menu").classList.add("hide");toast("读取存档 · 第 3 章")},set:()=>$("#settings").style.display="flex",closeset:()=>$("#settings").style.display="none",
+ about:()=>toast("游戏 UI 套件 · 参考实现"),dmg:()=>{st.hp=Math.max(0,st.hp-Math.round(120+Math.random()*120));bars();document.body.animate([{transform:"translate(6px,0)"},{transform:"translate(-6px,0)"},{transform:"none"}],{duration:200})},
+ heal:()=>{st.hp=Math.min(st.hpM,st.hp+250);bars()},inv:()=>{const e=$("#inv");e.style.display=e.style.display=="block"?"none":"block"},talk:()=>showDlg(0),menu:()=>$("#menu").classList.remove("hide")};
+document.querySelectorAll("[data-a]").forEach(e=>e.addEventListener("click",ev=>{ev.stopPropagation();act[e.dataset.a]()}));
+onkeydown=e=>{if(e.key=="b"||e.key=="B")act.inv();if(e.key=="t"||e.key=="T")act.talk();if(e.key=="Escape")act.menu();if("123456".includes(e.key)&&e.key)useSkill(e.key)};
+if(new URLSearchParams(location.search).get("demo")){act.start();act.inv();showDlg(1);st.hp=420;bars()}
+</script></body></html>

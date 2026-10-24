@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>弹球 · 参考实现</title>
+<style>*{margin:0}body{background:radial-gradient(#1b1036,#05030c);height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,"PingFang SC",sans-serif;color:#fff;overflow:hidden}
+#wrap{text-align:center}#hud{margin-bottom:6px;font-size:15px}canvas{border-radius:16px;box-shadow:0 0 40px #7b4dff66}#tip{font-size:13px;opacity:.7;margin-top:6px}</style></head>
+<body><div id="wrap"><div id="hud"></div><canvas id="c" width="420" height="680"></canvas><div id="tip">← / A 左挡板 · → / D 右挡板 · 空格 按住蓄力发射 · 触屏点左右半边</div></div>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d"),W=420,H=680;
+let ball,score=0,balls=3,best=+localStorage.pbBest||0,charge=0,flash=[],parts=[],combo=1;
+const walls=[[20,680,20,120],[20,120,80,40],[80,40,340,40],[340,40,400,120],[400,120,400,680],[370,680,370,160],
+ [20,520,130,600],[340,520,250,600],[60,440,60,500],[330,440,330,500],[60,500,110,540],[330,500,280,540]];// 线段墙
+const bumpers=[{x:140,y:200,r:24,c:"#ff4fa3"},{x:250,y:180,r:24,c:"#4fd8ff"},{x:195,y:290,r:24,c:"#ffd24f"}];
+const targets=[{x:60,y:250,on:1},{x:60,y:290,on:1},{x:60,y:330,on:1}];
+const flippers=[{px:130,py:600,len:54,dir:1,a:.5,up:0},{px:250,py:600,len:54,dir:-1,a:.5,up:0}];
+function newBall(){ball={x:385,y:640,vx:0,vy:0,r:9,inLane:1,trail:[]}}newBall();
+const keys={};onkeydown=e=>{keys[e.code]=1;if(e.code=="Space")e.preventDefault()};onkeyup=e=>{keys[e.code]=0;if(e.code=="Space")launch()};
+c.addEventListener("pointerdown",e=>{const r=c.getBoundingClientRect(),px=e.clientX-r.left;if(ball.inLane){keys.Space=1}else keys[px<r.width/2?"KeyA":"KeyD"]=1});
+addEventListener("pointerup",()=>{if(keys.Space){keys.Space=0;launch()}keys.KeyA=keys.KeyD=0});
+function launch(){if(ball.inLane){ball.vy=-(10+charge*12);charge=0}}
+function burst(px,py,col,n){for(let i=0;i<n;i++){const a=Math.random()*7,v=Math.random()*4+1;parts.push({x:px,y:py,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,c:col})}}
+function segHit(x1,y1,x2,y2,bounce,boost){const dx=x2-x1,dy=y2-y1,L2=dx*dx+dy*dy;let t=((ball.x-x1)*dx+(ball.y-y1)*dy)/L2;t=Math.max(0,Math.min(1,t));
+ const cx=x1+t*dx,cy=y1+t*dy,nx=ball.x-cx,ny=ball.y-cy,d=Math.hypot(nx,ny);
+ if(d<ball.r&&d>0){const ux=nx/d,uy=ny/d;ball.x=cx+ux*ball.r;ball.y=cy+uy*ball.r;const vn=ball.vx*ux+ball.vy*uy;if(vn<0){ball.vx-=(1+bounce)*vn*ux;ball.vy-=(1+bounce)*vn*uy;if(boost){ball.vx+=ux*boost;ball.vy+=uy*boost}}return 1}return 0}
+function fTip(f){const ang=f.dir==1?f.a:Math.PI-f.a;return[f.px+Math.cos(ang)*f.len,f.py+Math.sin(ang)*f.len]}
+const demo=new URLSearchParams(location.search).get("demo");if(demo){ball.inLane=0;ball.x=200;ball.y=120;ball.vx=2;ball.vy=1}
+function step(){
+ for(const f of flippers){const on=f.dir==1?(keys.ArrowLeft||keys.KeyA):(keys.ArrowRight||keys.KeyD);if(demo)f.up=ball.y>540&&Math.abs(ball.x-f.px)<80;else f.up=on;const tgt=f.up?-.45:.5;f.prev=f.a;f.a+=(tgt-f.a)*.45}
+ if(keys.Space&&ball.inLane)charge=Math.min(1,charge+.02);
+ for(let s=0;s<3;s++){ball.vy+=.06;ball.x+=ball.vx/3*1.0;ball.y+=ball.vy/3;
+  if(ball.inLane){if(ball.y>640){ball.y=640;ball.vy=0}if(ball.y<150)ball.inLane=0}
+  for(const w of walls)segHit(...w,.5,0);
+  for(const b of bumpers){const dx=ball.x-b.x,dy=ball.y-b.y,d=Math.hypot(dx,dy);if(d<b.r+ball.r){const ux=dx/d,uy=dy/d;ball.x=b.x+ux*(b.r+ball.r);ball.y=b.y+uy*(b.r+ball.r);ball.vx=ux*9;ball.vy=uy*9;score+=100*combo;b.hit=1;burst(b.x+ux*b.r,b.y+uy*b.r,b.c,18);flash.push({t:"+"+100*combo,x:b.x,y:b.y-30,l:1})}}
+  for(const t of targets)if(t.on&&Math.abs(ball.x-t.x)<14&&Math.abs(ball.y-t.y)<16){t.on=0;ball.vx=Math.abs(ball.vx)+2;score+=250;burst(t.x,t.y,"#7fff7f",12);
+   if(targets.every(q=>!q.on)){combo++;targets.forEach(q=>q.on=1);flash.push({t:"倍率 ×"+combo,x:200,y:350,l:1.5})}}
+  for(const f of flippers){const [tx,ty]=fTip(f);const sp=Math.abs(f.a-f.prev)>.05&&f.up?6:0;segHit(f.px,f.py,tx,ty,.3,sp)}}
+ const v=Math.hypot(ball.vx,ball.vy);if(v>18){ball.vx*=18/v;ball.vy*=18/v}
+ ball.trail.push([ball.x,ball.y]);if(ball.trail.length>12)ball.trail.shift();
+ if(ball.y>H+20){balls--;combo=1;if(balls<=0){best=Math.max(best,score);localStorage.pbBest=best;flash.push({t:"游戏结束",x:200,y:340,l:2});score=0;balls=3}newBall();if(demo){ball.inLane=0;ball.x=200;ball.y=120;ball.vx=-2}}
+ bumpers.forEach(b=>b.hit=Math.max(0,(b.hit||0)-.08));parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.l-=.03});parts=parts.filter(p=>p.l>0);flash.forEach(f=>{f.y-=.6;f.l-=.02});flash=flash.filter(f=>f.l>0);
+ document.getElementById("hud").textContent=`得分 ${score}  ·  剩余球 ${balls}  ·  倍率 ×${combo}  ·  最高 ${best}`}
+function draw(){x.fillStyle="#120a24";x.fillRect(0,0,W,H);
+ x.strokeStyle="#ffffff08";for(let i=0;i<W;i+=20){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke()}
+ x.lineCap="round";x.shadowBlur=12;
+ x.strokeStyle="#9b7bff";x.shadowColor="#9b7bff";x.lineWidth=5;for(const w of walls){x.beginPath();x.moveTo(w[0],w[1]);x.lineTo(w[2],w[3]);x.stroke()}
+ for(const b of bumpers){x.shadowColor=b.c;x.fillStyle=b.c;x.beginPath();x.arc(b.x,b.y,b.r+b.hit*6,0,7);x.fill();x.fillStyle="#fff";x.beginPath();x.arc(b.x,b.y,b.r*.45,0,7);x.fill()}
+ for(const t of targets){x.fillStyle=t.on?"#7fff7f":"#264";x.shadowColor="#7fff7f";x.fillRect(t.x-6,t.y-12,12,24)}
+ x.lineWidth=14;x.strokeStyle="#ff9f3f";x.shadowColor="#ff9f3f";for(const f of flippers){const [tx,ty]=fTip(f);x.beginPath();x.moveTo(f.px,f.py);x.lineTo(tx,ty);x.stroke()}
+ x.fillStyle="#333";x.shadowBlur=0;x.fillRect(374,650,22,30);x.fillStyle="#f44";x.fillRect(374,680-30*charge,22,30*charge);
+ ball.trail.forEach(([tx,ty],i)=>{x.globalAlpha=i/24;x.fillStyle="#9ff";x.beginPath();x.arc(tx,ty,ball.r*i/12,0,7);x.fill()});x.globalAlpha=1;
+ x.shadowBlur=16;x.shadowColor="#fff";x.fillStyle="#eef";x.beginPath();x.arc(ball.x,ball.y,ball.r,0,7);x.fill();
+ parts.forEach(p=>{x.globalAlpha=p.l;x.fillStyle=p.c;x.fillRect(p.x,p.y,3,3)});x.globalAlpha=1;
+ x.textAlign="center";x.font="bold 20px system-ui";flash.forEach(f=>{x.globalAlpha=Math.min(1,f.l);x.fillStyle="#fff";x.fillText(f.t,f.x,f.y)});x.globalAlpha=1;x.shadowBlur=0}
+(function loop(){step();draw();requestAnimationFrame(loop)})();
+</script></body></html>

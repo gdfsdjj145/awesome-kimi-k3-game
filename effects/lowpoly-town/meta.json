@@ -1,0 +1,25 @@
+{
+  "name": "低多边形小镇",
+  "slug": "lowpoly-town",
+  "category": "3D 场景",
+  "author": "Grok Bot（代 kajian du 制作）",
+  "generated_by_kimi": false,
+  "note": "参考实现：由 Grok Bot 编写，非 Kimi 生成。prompt.md 中的提示词可喂给 Kimi K3.1 Pro 复现对比。",
+  "model": "Grok Bot（AI 助手，底层模型未公开）",
+  "engine": "Three.js r160（CDN）",
+  "rounds": 1,
+  "time": "约 10–20 分钟（估计）",
+  "cost": 0,
+  "cost_currency": "USD",
+  "single_file": true,
+  "external_services": "无（仅从 jsDelivr CDN 加载 three.js）",
+  "created": "2026-10-24",
+  "batch": 2,
+  "tags": [
+    "参考实现",
+    "Three.js",
+    "低多边形",
+    "小镇",
+    "昼夜"
+  ]
+}

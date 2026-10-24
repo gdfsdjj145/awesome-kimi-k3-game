@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>平台跳跃 · 参考实现</title>
+<style>*{margin:0}body{background:#1a1c2c;overflow:hidden;font-family:system-ui,"PingFang SC",sans-serif}canvas{display:block;margin:0 auto}
+#hud{position:fixed;top:10px;left:14px;color:#fff;font-size:15px;text-shadow:0 1px 2px #000}#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;pointer-events:none;text-shadow:0 2px 6px #000}</style></head>
+<body><canvas id="c"></canvas><div id="hud"></div><div id="msg"></div>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d");let W,H;function rs(){W=c.width=innerWidth;H=c.height=innerHeight}rs();addEventListener("resize",rs);
+const T=40;// 关卡：# 地面 = 平台 o 金币 ^ 尖刺 F 终点 E 敌人
+const MAP=[
+"                                                                                  ",
+"                                                                                  ",
+"                                   ooo                                            ",
+"                                  =====              o o o                        ",
+"                    ooo                            =========             F        ",
+"                   =====      E          ooo                          =====       ",
+"           o o                       ==========            E    ooo               ",
+"          =====          ====                          =======  ===                ",
+"    o                                    E                                         ",
+"#########   #########^^^#########  ###########   ######^^#########  ##############",
+"#########   #########################  ###########   #############  ##############"];
+let tiles,coins,enemies,p,cam,score,lives,keys={},win,particles=[];
+function load(){tiles=[];coins=[];enemies=[];MAP.forEach((r,j)=>[...r].forEach((ch,i)=>{if("#=^F".includes(ch))tiles.push({i,j,t:ch});if(ch=="o")coins.push({x:i*T+T/2,y:j*T+T/2,got:0});if(ch=="E")enemies.push({x:i*T,y:j*T,vx:1.2,w:30,h:28,vy:0,dead:0})}));
+ p={x:80,y:200,vx:0,vy:0,w:26,h:34,on:0,jumps:0,face:1,squash:1};cam=0;win=0}
+score=0;lives=3;load();
+const solid=(i,j)=>tiles.find(t=>t.i==i&&t.j==j&&"#=".includes(t.t));
+const tileAt=(i,j)=>tiles.find(t=>t.i==i&&t.j==j);
+function collide(o,ax){const i0=Math.floor(o.x/T),i1=Math.floor((o.x+o.w-1)/T),j0=Math.floor(o.y/T),j1=Math.floor((o.y+o.h-1)/T);
+ for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++)if(solid(i,j)){
+  if(ax=="x"){const v=o.vx;if(v>0)o.x=i*T-o.w;else if(v<0)o.x=(i+1)*T;o.vx=0}
+  else{const v=o.vy;if(v>0){o.y=j1*T-o.h;o.on=1}else o.y=(j0+1)*T;o.vy=0}
+  return 1}
+ return 0}
+function dust(px,py,col,n){for(let k=0;k<n;k++)particles.push({x:px,y:py,vx:(Math.random()-.5)*4,vy:-Math.random()*3,l:1,c:col})}
+function die(){lives--;dust(p.x,p.y,"#f55",30);if(lives<=0){score=0;lives=3}load()}
+onkeydown=e=>{keys[e.code]=1;if(["Space","ArrowUp","KeyW"].includes(e.code)){e.preventDefault();if(p.on||p.jumps<2){p.vy=-11.5;p.jumps++;p.on=0;p.squash=.6;dust(p.x+13,p.y+34,"#ccc",8)}}if(e.code=="KeyR"){load()}};onkeyup=e=>keys[e.code]=0;
+const demo=new URLSearchParams(location.search).get("demo");
+function update(){if(win)return;const L=keys.ArrowLeft||keys.KeyA,R=keys.ArrowRight||keys.KeyD||demo;
+ p.vx+=((R?1:0)-(L?1:0))*1;p.vx*=.82;if(R)p.face=1;if(L)p.face=-1;
+ p.vy=Math.min(p.vy+.55,14);p.x+=p.vx;collide(p,"x");p.on=0;p.y+=p.vy;collide(p,"y");{const fj=Math.floor((p.y+p.h+1)/T);if(p.vy>=0&&(solid(Math.floor(p.x/T),fj)||solid(Math.floor((p.x+p.w-1)/T),fj)))p.on=1}if(p.on)p.jumps=0;
+ if(demo&&p.on){const ai=Math.floor((p.x+32)/T),gj=Math.floor((p.y+p.h+5)/T),ta=tileAt(ai,gj);if(!ta||ta.t=="^"||solid(ai,gj-1)||enemies.some(e=>!e.dead&&e.x-p.x>0&&e.x-p.x<90&&Math.abs(e.y-p.y)<40)){p.vy=-11.5;p.on=0}}
+ p.squash+=(1-p.squash)*.2;
+ const ci=Math.floor((p.x+13)/T),cj=Math.floor((p.y+33)/T);const tt=tileAt(ci,cj);if(tt&&tt.t=="^")die();if(tt&&tt.t=="F"||tileAt(ci,Math.floor((p.y+5)/T))?.t=="F"){win=1;document.getElementById("msg").textContent="🎉 通关！按 R 重来"}
+ if(p.y>MAP.length*T+200)die();
+ for(const co of coins)if(!co.got&&Math.abs(co.x-p.x-13)<22&&Math.abs(co.y-p.y-17)<26){co.got=1;score+=10;dust(co.x,co.y,"#ffd700",12)}
+ for(const e of enemies){if(e.dead)continue;e.vy+=.55;const d=e.vx;e.x+=d;if(collide(e,"x"))e.vx=-d;const sv=e.vx;e.y+=e.vy;e.on=0;collide(e,"y");e.vx=sv;
+  if(e.on&&!solid(Math.floor((e.x+(e.vx>0?e.w:0))/T),Math.floor((e.y+e.h+2)/T)))e.vx*=-1;
+  if(p.x<e.x+e.w&&p.x+p.w>e.x&&p.y<e.y+e.h&&p.y+p.h>e.y){if(demo||(p.vy>0&&p.y+p.h-e.y<16)){e.dead=1;p.vy=-8;score+=50;dust(e.x+15,e.y+14,"#a4f",20)}else die()}}
+ cam+=(p.x-W/3-cam)*.1;cam=Math.max(0,cam);
+ particles.forEach(q=>{q.x+=q.vx;q.y+=q.vy;q.vy+=.15;q.l-=.03});particles=particles.filter(q=>q.l>0);
+ document.getElementById("hud").textContent=`❤️ ${lives}   🪙 ${score}   ← → / A D 移动 · 空格跳（可二段跳） · R 重来`}
+function draw(){const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,"#5fcde4");g.addColorStop(1,"#c7f0ff");x.fillStyle=g;x.fillRect(0,0,W,H);
+ const oy=H-MAP.length*T-20;
+ x.fillStyle="#9ed8a8";for(let i=0;i<20;i++){const hx=i*300-cam*.3%300;x.beginPath();x.arc(hx,oy+MAP.length*T-40,160,Math.PI,0);x.fill()}
+ x.save();x.translate(-Math.round(cam),oy);
+ for(const t of tiles){const X=t.i*T,Y=t.j*T;if(t.t=="#"){x.fillStyle="#8b5a2b";x.fillRect(X,Y,T,T);if(!tileAt(t.i,t.j-1)){x.fillStyle="#4caf50";x.fillRect(X,Y,T,10)}}
+  else if(t.t=="="){x.fillStyle="#b86f50";x.fillRect(X,Y,T,T*.5);x.fillStyle="#e4a672";x.fillRect(X,Y,T,5)}
+  else if(t.t=="^"){x.fillStyle="#ccc";for(let k=0;k<3;k++){x.beginPath();x.moveTo(X+k*13,Y+T);x.lineTo(X+k*13+6.5,Y+T-20);x.lineTo(X+k*13+13,Y+T);x.fill()}}
+  else if(t.t=="F"){x.fillStyle="#555";x.fillRect(X+18,Y-60,4,100);x.fillStyle="#e33";x.beginPath();x.moveTo(X+22,Y-60);x.lineTo(X+50,Y-48);x.lineTo(X+22,Y-36);x.fill()}}
+ const tm=performance.now()/200;for(const co of coins)if(!co.got){x.fillStyle="#ffd700";x.beginPath();x.ellipse(co.x,co.y,9*Math.abs(Math.cos(tm)),10,0,0,7);x.fill()}
+ for(const e of enemies)if(!e.dead){x.fillStyle="#7b3fe4";x.beginPath();x.ellipse(e.x+15,e.y+16,16,13,0,0,7);x.fill();x.fillStyle="#fff";x.fillRect(e.x+7,e.y+8,6,6);x.fillRect(e.x+18,e.y+8,6,6)}
+ x.save();x.translate(p.x+13,p.y+34);x.scale((2-p.squash)*p.face,p.squash);x.fillStyle="#e43b44";x.fillRect(-13,-34,26,34);x.fillStyle="#fff";x.fillRect(2,-28,7,7);x.fillStyle="#000";x.fillRect(5,-26,3,4);x.restore();
+ particles.forEach(q=>{x.globalAlpha=q.l;x.fillStyle=q.c;x.fillRect(q.x,q.y,4,4)});x.globalAlpha=1;x.restore()}
+(function loop(){update();draw();requestAnimationFrame(loop)})();
+</script></body></html>

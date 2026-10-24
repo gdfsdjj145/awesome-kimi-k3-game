@@ -11,7 +11,7 @@ body{background:#0d1017;color:#e8ecf3;font-family:system-ui,"PingFang SC","Micro
 header{max-width:1100px;margin:0 auto 24px}
 h1{font-size:28px}header p{opacity:.75;margin-top:8px;line-height:1.7;font-size:14px}
 a{color:#8ab4ff}
-.grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
 .card{background:#161b26;border:1px solid #252c3b;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
 .card img{width:100%;aspect-ratio:5/3;object-fit:cover;display:block;background:#000;transition:transform .3s}
 .card a.thumb{overflow:hidden;display:block}.card a.thumb:hover img{transform:scale(1.04)}
@@ -24,6 +24,11 @@ a{color:#8ab4ff}
 .btns a,.btns button{flex:1;text-align:center;padding:8px;border-radius:8px;font-size:14px;cursor:pointer;border:1px solid #33405a;background:#1f2738;color:#e8ecf3;text-decoration:none}
 .btns a.play{background:#2d5bff;border-color:#2d5bff}
 .btns button.ok{background:#1d6b3a;border-color:#1d6b3a}
+main,nav{max-width:1100px;margin:0 auto}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;position:sticky;top:0;background:#0d1017ee;padding:10px 0;z-index:5}
+nav a{padding:6px 14px;border-radius:999px;background:#1f2738;border:1px solid #33405a;text-decoration:none;color:#e8ecf3;font-size:14px}
+nav a small{margin-left:6px;opacity:.6}
+section{margin:22px 0 10px}section h2{font-size:20px;margin-bottom:12px;padding-left:10px;border-left:4px solid #ffd36a}
 footer{max-width:1100px;margin:28px auto 0;font-size:12px;opacity:.5;line-height:1.7}
 </style>
 </head>
@@ -34,27 +39,41 @@ footer{max-width:1100px;margin:28px auto 0;font-size:12px;opacity:.5;line-height
  ⚠️ 下列效果均标为 <span class="tag">参考实现</span>：由 Grok Bot 代 kajian du 制作，<b>不是 Kimi 生成</b>。欢迎用同一提示词跑 Kimi 后提交结果。
  · <a href="https://github.com/gdfsdjj145/awesome-kimi-k3-game">GitHub 仓库</a></p>
 </header>
-<main class="grid" id="grid"></main>
+<nav id="nav"></nav><main id="main"></main>
 <footer>点「复制提示词」会读取对应目录下的 prompt.md 并复制到剪贴板。</footer>
 <script>
+const CATS=["玩法","卡牌与抽卡","战斗特效","3D 场景","UI","美术风格"];
 const EFFECTS=[
- {slug:"gacha-ten-pull",name:"卡牌十连抽动画",desc:"十连抽卡、卡背预兆、3D 翻牌、出金光环与粒子、结算界面、90 抽保底。",engine:"HTML5 + CSS 3D + Canvas"},
- {slug:"skill-vfx",name:"技能释放特效",desc:"火球、闪电、剑气、陨石四个技能：粒子、拖尾、受击闪白、屏幕震动、暴击飘字。",engine:"Canvas 2D"},
- {slug:"voxel-island",name:"体素小岛",desc:"程序生成体素岛屿与树木，波动水面，日月公转的昼夜循环，OrbitControls 转视角。",engine:"Three.js"}
+ {slug:"platformer",cat:"玩法",name:"平台跳跃",desc:"横版关卡、二段跳、踩敌人、金币、尖刺与终点旗，挤压回弹手感。",engine:"Canvas 2D"},
+ {slug:"pinball",cat:"玩法",name:"弹球",desc:"霓虹弹珠台：挡板、蓄力发射、弹力柱、目标灯倍率、子步物理防穿透。",engine:"Canvas 2D"},
+ {slug:"tower-defense",cat:"玩法",name:"塔防",desc:"箭塔 / 炮塔 / 冰塔，升级、溅射、减速，波次与 Boss，倍速。",engine:"Canvas 2D"},
+ {slug:"match-three",cat:"玩法",name:"三消",desc:"点选或拖拽交换，连锁消除、下落补充、连击加分与震屏。",engine:"Canvas 2D"},
+ {slug:"endless-runner",cat:"玩法",name:"跑酷",desc:"合成波风格无尽跑酷：二段跳、滑铲、飞鸟障碍、视差城市。",engine:"Canvas 2D"},
+ {slug:"gacha-ten-pull",cat:"卡牌与抽卡",name:"卡牌十连抽动画",desc:"十连抽卡、卡背预兆、3D 翻牌、出金光环与粒子、结算界面、90 抽保底。",engine:"HTML5 + CSS 3D + Canvas"},
+ {slug:"card-flip-rarity",cat:"卡牌与抽卡",name:"卡牌翻转与稀有度展示",desc:"N / R / SR / SSR / UR 五档光效：扫光、旋转光环、彩虹全息、3D 倾斜。",engine:"CSS 3D + Canvas"},
+ {slug:"skill-vfx",cat:"战斗特效",name:"技能释放特效",desc:"火球、闪电、剑气、陨石四个技能：粒子、拖尾、受击闪白、屏幕震动、暴击飘字。",engine:"Canvas 2D"},
+ {slug:"explosion-hit-vfx",cat:"战斗特效",name:"爆炸与受击特效",desc:"火焰爆炸、能量新星、碎石爆破、受击顿帧、焦痕与动态光照。",engine:"Canvas 2D"},
+ {slug:"voxel-island",cat:"3D 场景",name:"体素小岛",desc:"程序生成体素岛屿与树木，波动水面，日月公转的昼夜循环，OrbitControls 转视角。",engine:"Three.js"},
+ {slug:"lowpoly-town",cat:"3D 场景",name:"低多边形小镇",desc:"程序生成房屋、树木、道路、行驶的小车与路灯，白天 / 夜晚切换。",engine:"Three.js"},
+ {slug:"game-ui-kit",cat:"UI",name:"游戏 UI 套件",desc:"主菜单、设置、血条 / 法力条、技能栏、可拖拽背包、打字机对话框。",engine:"HTML + CSS"},
+ {slug:"art-style-switch",cat:"美术风格",name:"同一小游戏的三种美术风格",desc:"「星星收集者」在像素、卡通渲染、赛博朋克之间实时切换。",engine:"Canvas 2D"}
 ];
-const g=document.getElementById("grid");
-for(const e of EFFECTS){const url=`effects/${e.slug}/`;
- const d=document.createElement("div");d.className="card";
- d.innerHTML=`<a class="thumb" href="${url}"><img src="${url}preview.png" alt="${e.name}" loading="lazy"></a>
- <div class="body"><div class="title">${e.name}<span class="tag">参考实现</span></div>
- <div class="desc">${e.desc}</div><div class="meta">引擎：${e.engine} · 作者：Grok Bot（非 Kimi 生成）</div>
- <div class="btns"><a class="play" href="${url}">▶ 开始玩</a><a href="${url}prompt.md" target="_blank">查看提示词</a><button>📋 复制提示词</button></div></div>`;
- const b=d.querySelector("button");
- b.onclick=async()=>{try{const t=await (await fetch(`${url}prompt.md`)).text();
-   try{await navigator.clipboard.writeText(t)}catch{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove()}
-   b.textContent="✅ 已复制";b.classList.add("ok")}catch(err){b.textContent="❌ 复制失败"}
-   setTimeout(()=>{b.textContent="📋 复制提示词";b.classList.remove("ok")},1800)};
- g.appendChild(d)}
+const main=document.getElementById("main"),nav=document.getElementById("nav");
+for(const cat of CATS){const items=EFFECTS.filter(e=>e.cat==cat);if(!items.length)continue;
+ const id="cat-"+CATS.indexOf(cat);nav.innerHTML+=`<a href="#${id}">${cat}<small>${items.length}</small></a>`;
+ const sec=document.createElement("section");sec.id=id;sec.innerHTML=`<h2>${cat}</h2>`;const g=document.createElement("div");g.className="grid";sec.appendChild(g);main.appendChild(sec);
+ for(const e of items){const url=`effects/${e.slug}/`;
+  const d=document.createElement("div");d.className="card";
+  d.innerHTML=`<a class="thumb" href="${url}"><img src="${url}preview.png" alt="${e.name}" loading="lazy"></a>
+  <div class="body"><div class="title">${e.name}<span class="tag">参考实现</span></div>
+  <div class="desc">${e.desc}</div><div class="meta">引擎：${e.engine} · 作者：Grok Bot（非 Kimi 生成）</div>
+  <div class="btns"><a class="play" href="${url}">▶ 开始玩</a><a href="${url}prompt.md" target="_blank">查看提示词</a><button>📋 复制提示词</button></div></div>`;
+  const b=d.querySelector("button");
+  b.onclick=async()=>{try{const t=await (await fetch(`${url}prompt.md`)).text();
+    try{await navigator.clipboard.writeText(t)}catch{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove()}
+    b.textContent="✅ 已复制";b.classList.add("ok")}catch(err){b.textContent="❌ 复制失败"}
+    setTimeout(()=>{b.textContent="📋 复制提示词";b.classList.remove("ok")},1800)};
+  g.appendChild(d)}}
 </script>
 </body>
 </html>
