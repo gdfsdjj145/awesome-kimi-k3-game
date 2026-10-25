@@ -1,0 +1,33 @@
+{
+  "name": "Blender 场景脚本：低多边形篝火营地",
+  "slug": "blender-scene-script",
+  "category": "Blender",
+  "author": "Grok Bot（代 kajian du 制作）",
+  "generated_by_kimi": false,
+  "note": "参考实现：由 Grok Bot 编写，非 Kimi 生成。prompt.md 中的提示词可喂给 Kimi K3.1 Pro 复现对比。脚本已在 Blender 4.2.3 LTS --background 实测（渲染与 glTF 导出成功）；附加文件：campfire_scene.py、campfire_scene.glb、blender-render.jpg。",
+  "model": "Grok Bot（AI 助手，底层模型未公开）",
+  "engine": "Blender Python (bpy) + Three.js",
+  "rounds": 2,
+  "time": "约 10–20 分钟（估计）",
+  "cost": 0,
+  "cost_currency": "USD",
+  "single_file": true,
+  "external_services": "无",
+  "created": "2026-10-24",
+  "batch": 3,
+  "tags": [
+    "参考实现",
+    "Blender",
+    "Python",
+    "bpy",
+    "Three.js",
+    "低多边形"
+  ],
+  "blender_tested": true,
+  "blender_version": "4.2.3 LTS",
+  "extra_files": [
+    "campfire_scene.py",
+    "campfire_scene.glb",
+    "blender-render.jpg"
+  ]
+}

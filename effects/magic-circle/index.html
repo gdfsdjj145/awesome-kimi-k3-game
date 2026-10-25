@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>魔法阵 · 参考实现</title>
+<style>*{margin:0}body{background:radial-gradient(#141030,#030208 70%);overflow:hidden;font-family:system-ui,"PingFang SC",sans-serif;color:#fff}canvas{display:block}
+#p{position:fixed;top:12px;left:12px;background:#0008;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.9}
+#p button{margin:2px;padding:4px 10px;border-radius:6px;border:1px solid #555;background:#1b1b2b;color:#fff;cursor:pointer}#p button.on{border-color:var(--c);box-shadow:0 0 8px var(--c)}</style></head>
+<body><canvas id="c"></canvas><div id="p"><b>🔮 魔法阵</b> · 点击画面「咏唱」：阵法展开 → 充能 → 释放<br>元素：<span id="el"></span></div>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d");let W,H;function rs(){W=c.width=innerWidth;H=c.height=innerHeight}rs();addEventListener("resize",rs);
+const ELS={arcane:["奥术",270],fire:["火焰",18],ice:["寒冰",195],nature:["自然",120],holy:["神圣",48]};let el="arcane";
+const ew=document.getElementById("el");for(const k in ELS){const b=document.createElement("button");b.textContent=ELS[k][0];b.style.setProperty("--c",`hsl(${ELS[k][1]},100%,60%)`);b.onclick=e=>{e.stopPropagation();el=k;[...ew.children].forEach(q=>q.classList.remove("on"));b.classList.add("on")};if(k==el)b.classList.add("on");ew.appendChild(b)}
+const RUNES="ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟ";let t=0,phase=0,pt=0,P=[],shake=0,beam=0;// phase 0待机 1展开 2充能 3释放
+c.onclick=()=>{if(phase==0||phase==3&&pt>80){phase=1;pt=0}};
+const R=(a,b)=>a+Math.random()*(b-a);
+function ring(r,w,a){x.lineWidth=w;x.globalAlpha=a;x.beginPath();x.arc(0,0,r,0,7);x.stroke()}
+function poly(n,r,rot,skip=1){x.beginPath();for(let i=0;i<=n;i++){const a=rot+(i*skip%n)/n*Math.PI*2;i?x.lineTo(Math.cos(a)*r,Math.sin(a)*r):x.moveTo(Math.cos(a)*r,Math.sin(a)*r)}x.stroke()}
+function text(r,str,rot,size){x.font=`${size}px serif`;x.textAlign="center";x.textBaseline="middle";const n=str.length;for(let i=0;i<n;i++){const a=rot+i/n*Math.PI*2;x.save();x.rotate(a);x.translate(0,-r);x.fillText(str[i],0,0);x.restore()}}
+function circle(S,open,energy){const h=ELS[el][1],col=`hsl(${h},100%,${60+energy*20}%)`;x.strokeStyle=col;x.fillStyle=col;x.shadowColor=col;x.shadowBlur=14+energy*20;
+ const o=Math.min(1,open);const sp=1+energy*4;
+ ring(S*o,3,1);ring(S*.93*o,1.2,.8);
+ x.save();x.rotate(t*.004*sp);x.globalAlpha=o;text(S*.865,RUNES.repeat(2),0,S*.06);x.restore();
+ ring(S*.8*o,2,.9);
+ x.save();x.rotate(-t*.006*sp);x.lineWidth=1.6;x.globalAlpha=Math.max(0,o*1.2-.2);poly(6,S*.78,0,2);poly(6,S*.78,Math.PI/6,2);x.restore();
+ x.save();x.rotate(t*.01*sp);ring(S*.42*o,1.5,o);x.lineWidth=1.5;for(let i=0;i<12;i++){const a=i/12*Math.PI*2;x.beginPath();x.moveTo(Math.cos(a)*S*.42*o,Math.sin(a)*S*.42*o);x.lineTo(Math.cos(a)*S*.5*o,Math.sin(a)*S*.5*o);x.stroke()}
+ for(let i=0;i<6;i++){const a=i/6*Math.PI*2;x.beginPath();x.arc(Math.cos(a)*S*.6*o,Math.sin(a)*S*.6*o,S*.06*o,0,7);x.stroke()}x.restore();
+ x.save();x.rotate(-t*.015*sp);x.globalAlpha=o;x.lineWidth=2;poly(5,S*.38*o,0,2);text(S*.25,"✦✧✦✧✦✧",0,S*.05);x.restore();
+ x.globalAlpha=o;x.beginPath();x.arc(0,0,S*.08*(1+energy),0,7);x.fill();x.globalAlpha=1}
+function loop(){t++;pt++;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,W,H);
+ const S=Math.min(W,H)*.36,h=ELS[el][1];let open=0,energy=0;
+ if(phase==0){open=.98+Math.sin(t*.05)*.02;energy=0}if(phase==1){open=Math.min(1,pt/60);if(pt>60){phase=2;pt=0}}
+ if(phase==2){open=1;energy=Math.min(1,pt/120);for(let i=0;i<4;i++){const a=R(0,7),r=S*R(1,1.4);P.push({x:Math.cos(a)*r,y:Math.sin(a)*r*.45,tx:0,ty:0,l:1,in:1})}if(pt>120){phase=3;pt=0;shake=18;beam=1;for(let i=0;i<300;i++){const a=R(0,7),v=R(2,14);P.push({x:0,y:0,vx:Math.cos(a)*v,vy:Math.sin(a)*v*.45,l:1})}}}
+ if(phase==3){open=Math.max(0,1-pt/90);energy=Math.max(0,1-pt/30);if(pt>150){phase=0;pt=0}}
+ if(phase==0&&t%300==0&&new URLSearchParams(location.search).get("demo")==null){}
+ x.translate(W/2+R(-shake,shake),H*.6+R(-shake,shake));shake*=.9;
+ // 地面透视魔法阵
+ x.save();x.scale(1,.42);circle(S,open,energy);x.restore();
+ // 竖直光柱
+ if(phase>=2){const a=phase==2?energy*.4:beam;const g=x.createLinearGradient(0,-H,0,0);g.addColorStop(0,`hsla(${h},100%,70%,0)`);g.addColorStop(1,`hsla(${h},100%,75%,${a})`);x.globalCompositeOperation="lighter";x.fillStyle=g;const bw=phase==3?S*.5*beam:S*.12*energy;x.fillRect(-bw/2,-H,bw,H);x.fillStyle=`hsla(${h},100%,95%,${a})`;x.fillRect(-bw/6,-H,bw/3,H);beam*=.97}
+ x.globalCompositeOperation="lighter";x.shadowBlur=0;
+ for(const p of P){if(p.in){p.x*=.94;p.y*=.94;p.y-=.4;p.l-=.012;if(Math.hypot(p.x,p.y)<6)p.l=0}else{p.x+=p.vx;p.y+=p.vy;p.vx*=.96;p.vy=p.vy*.96-.05;p.l-=.012}
+  x.globalAlpha=Math.max(0,p.l);x.fillStyle=`hsl(${h+R(-20,20)},100%,75%)`;x.fillRect(p.x,p.y,2.4,2.4)}x.globalAlpha=1;P=P.filter(p=>p.l>0);
+ // 漂浮光点
+ for(let i=0;i<30;i++){const a=i*2.39+t*.003,r=S*(.3+((i*37)%70)/100),y=-((t*.6+i*40)%(H*.6));x.globalAlpha=.5*(1-(-y)/(H*.6));x.fillStyle=`hsl(${h},100%,80%)`;x.beginPath();x.arc(Math.cos(a)*r,y+Math.sin(a)*r*.42,1.6,0,7);x.fill()}
+ x.globalAlpha=1;x.globalCompositeOperation="source-over";
+ x.setTransform(1,0,0,1,0,0);x.fillStyle="#fff";x.font="16px system-ui";x.textAlign="center";x.globalAlpha=.75;x.fillText(["点击开始咏唱","阵法展开中…","充能中… "+Math.round(energy*100)+"%","释放！"][phase],W/2,H-30);x.globalAlpha=1;
+ requestAnimationFrame(loop)}
+loop();if(new URLSearchParams(location.search).get("demo")){phase=1;pt=0}
+</script></body></html>

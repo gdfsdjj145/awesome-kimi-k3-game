@@ -1,0 +1,25 @@
+{
+  "name": "三渲二卡通 3D 风格",
+  "slug": "style-toon-3d",
+  "category": "美术风格",
+  "author": "Grok Bot（代 kajian du 制作）",
+  "generated_by_kimi": false,
+  "note": "参考实现：由 Grok Bot 编写，非 Kimi 生成。prompt.md 中的提示词可喂给 Kimi K3.1 Pro 复现对比。",
+  "model": "Grok Bot（AI 助手，底层模型未公开）",
+  "engine": "Three.js",
+  "rounds": 1,
+  "time": "约 10–20 分钟（估计）",
+  "cost": 0,
+  "cost_currency": "USD",
+  "single_file": true,
+  "external_services": "无",
+  "created": "2026-10-24",
+  "batch": 3,
+  "tags": [
+    "参考实现",
+    "三渲二",
+    "卡通渲染",
+    "Three.js",
+    "美术风格"
+  ]
+}

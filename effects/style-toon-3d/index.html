@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>三渲二卡通风格 · 参考实现</title>
+<style>*{margin:0}body{overflow:hidden;font-family:system-ui,"PingFang SC",sans-serif}
+#ui{position:fixed;top:12px;left:12px;background:#fff;border:3px solid #222;border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.9;box-shadow:4px 4px 0 #222}
+#ui button{padding:3px 10px;border-radius:8px;border:2px solid #222;background:#ffe066;cursor:pointer;margin:2px;font-weight:700}#ui button.off{background:#eee}
+label{margin-right:8px}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script></head>
+<body><div id="ui"><b>🎨 三渲二（Toon Shading）</b> · 拖动旋转 · 方向键/WASD 控制小鸡跑动<br>
+色阶 <button data-s="2">2 阶</button><button data-s="3">3 阶</button><button data-s="5">5 阶</button> 
+描边 <button id="ol">开</button> 风格 <button id="mode">卡通</button></div>
+<script type="module">
+import * as THREE from "three";import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+const R=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});R.setPixelRatio(Math.min(devicePixelRatio,2));R.setSize(innerWidth,innerHeight);R.shadowMap.enabled=true;document.body.appendChild(R.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x8fd8ff);
+const cam=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.1,200);cam.position.set(12,9,14);
+const ctl=new OrbitControls(cam,R.domElement);ctl.target.set(0,1.5,0);ctl.enableDamping=true;ctl.maxPolarAngle=Math.PI*.46;
+const sun=new THREE.DirectionalLight(0xffffff,2.2);sun.position.set(6,12,8);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-15,right:15,top:15,bottom:-15});scene.add(sun);
+scene.add(new THREE.AmbientLight(0xffffff,.6));
+// 色阶贴图：N 个台阶的 DataTexture，NearestFilter 产生硬边明暗
+function gradient(n){const d=new Uint8Array(n*4);for(let i=0;i<n;i++){const v=Math.round(80+i/(n-1)*175);d.set([v,v,v,255],i*4)}const t=new THREE.DataTexture(d,n,1,THREE.RGBAFormat);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;return t}
+let steps=3,grad=gradient(3),toon=true;const mats=[],outlines=[];
+function M(color){const m=new THREE.MeshToonMaterial({color,gradientMap:grad});m.userData.color=color;mats.push(m);return m}
+const OUT=new THREE.MeshBasicMaterial({color:0x1a1a22,side:THREE.BackSide});
+// 反向外壳描边：沿法线放大的背面网格
+function add(geo,mat,pos,parent=scene,ow=.04){const m=new THREE.Mesh(geo,mat);m.position.set(...pos);m.castShadow=m.receiveShadow=true;parent.add(m);
+ const o=new THREE.Mesh(geo,OUT);o.scale.setScalar(1);o.onBeforeRender=()=>{};o.userData.w=ow;m.add(o);outlines.push(o);o.scale.multiplyScalar(1+ow*2/(geo.boundingSphere||(geo.computeBoundingSphere(),geo.boundingSphere)).radius);return m}
+// 场景：草地岛、树、房子、云、小鸡
+add(new THREE.CylinderGeometry(9,9.5,1,40),M(0x7ed957),[0,-.5,0],scene,.02);
+add(new THREE.CylinderGeometry(9.6,8,1.6,40),M(0xb07a4a),[0,-1.8,0],scene,.02);
+for(const [x,z,s] of [[-5,-3,1],[-6,2,1.3],[4.5,-5,1.1],[6,3,.9],[-2,-6,.8]]){add(new THREE.CylinderGeometry(.25*s,.3*s,1.6*s,10),M(0x8b5a2b),[x,.8*s,z]);add(new THREE.SphereGeometry(1.3*s,20,14),M(0x3fbf5f),[x,2.3*s,z]);add(new THREE.SphereGeometry(.9*s,20,14),M(0x5fdf6f),[x+.6*s,2.9*s,z+.3*s])}
+const house=new THREE.Group();house.position.set(2,0,-1);scene.add(house);add(new THREE.BoxGeometry(3,2.4,2.6),M(0xfff1d6),[0,1.2,0],house);
+const roof=add(new THREE.ConeGeometry(2.6,1.8,4),M(0xff6b6b),[0,3.3,0],house);roof.rotation.y=Math.PI/4;add(new THREE.BoxGeometry(.8,1.3,.1),M(0x8b5a2b),[0,.65,1.32],house);
+add(new THREE.BoxGeometry(.6,.6,.1),M(0x6ecbff),[-.9,1.5,1.32],house);add(new THREE.BoxGeometry(.6,.6,.1),M(0x6ecbff),[.9,1.5,1.32],house);
+const pond=add(new THREE.CylinderGeometry(2,2,.1,32),M(0x4fb6ff),[-3,.02,4],scene,.02);
+for(let i=0;i<14;i++){const a=i/14*Math.PI*2;add(new THREE.SphereGeometry(.18,10,8),M([0xff8fb1,0xffe066,0xffffff][i%3]),[Math.cos(a)*7.5,.15,Math.sin(a)*7.5])}
+const clouds=[];for(let i=0;i<4;i++){const g=new THREE.Group();g.position.set(-10+i*7,8+i%2,-6+i*3);[[0,0,1],[1,.2,.8],[-1,.1,.8]].forEach(([x,y,s])=>add(new THREE.SphereGeometry(s,16,12),M(0xffffff),[x,y,0],g,.03));scene.add(g);clouds.push(g)}
+// 小鸡
+const chick=new THREE.Group();scene.add(chick);chick.position.set(0,0,3);
+add(new THREE.SphereGeometry(.7,24,18),M(0xffd93d),[0,.75,0],chick);add(new THREE.SphereGeometry(.45,20,16),M(0xffd93d),[0,1.55,.25],chick);
+add(new THREE.ConeGeometry(.15,.35,8),M(0xff8c1a),[0,1.5,.75],chick).rotation.x=Math.PI/2;
+for(const s of[-1,1]){add(new THREE.SphereGeometry(.08,10,8),M(0x222222),[s*.17,1.65,.62],chick,.01);const w=add(new THREE.SphereGeometry(.3,14,10),M(0xffc61a),[s*.65,.8,0],chick);w.scale.set(.5,1,1);w.userData.wing=s}
+const legs=[-1,1].map(s=>add(new THREE.CylinderGeometry(.06,.06,.4,6),M(0xff8c1a),[s*.25,.15,0],chick,.02));
+const keys={};onkeydown=e=>keys[e.code]=1;onkeyup=e=>keys[e.code]=0;
+document.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{steps=+b.dataset.s;grad=gradient(steps);mats.forEach(m=>{m.gradientMap=grad;m.needsUpdate=true})});
+document.getElementById("ol").onclick=e=>{const v=!outlines[0].visible;outlines.forEach(o=>o.visible=v);e.target.textContent=v?"开":"关";e.target.classList.toggle("off",!v)};
+document.getElementById("mode").onclick=e=>{toon=!toon;scene.traverse(o=>{if(o.isMesh&&o.material!==OUT){const c=o.material.userData.color;if(toon){o.material=o.userData.toonMat||o.material}else{o.userData.toonMat=o.material;o.material=new THREE.MeshStandardMaterial({color:c,roughness:.6});o.material.userData.color=c}}});outlines.forEach(o=>o.visible=toon);e.target.textContent=toon?"卡通":"写实对比"};
+const clk=new THREE.Clock();let vel=new THREE.Vector3();
+(function loop(){requestAnimationFrame(loop);const dt=Math.min(.05,clk.getDelta()),t=clk.elapsedTime;
+ const ix=((keys.ArrowRight||keys.KeyD)?1:0)-((keys.ArrowLeft||keys.KeyA)?1:0),iz=((keys.ArrowDown||keys.KeyS)?1:0)-((keys.ArrowUp||keys.KeyW)?1:0);
+ const auto=!(ix||iz);const dir=auto?new THREE.Vector3(Math.cos(t*.6)*.6,0,-Math.sin(t*.6)*.6):new THREE.Vector3(ix,0,iz).normalize();
+ vel.lerp(dir.multiplyScalar(4),.1);chick.position.addScaledVector(vel,dt);const r=Math.hypot(chick.position.x,chick.position.z);if(r>7){chick.position.multiplyScalar(7/r)}
+ if(auto){chick.position.set(Math.sin(t*.6)*5,0,Math.cos(t*.6)*5);vel.set(Math.cos(t*.6),0,-Math.sin(t*.6))}
+ const sp=vel.length();if(sp>.1)chick.rotation.y=Math.atan2(vel.x,vel.z);const hop=Math.abs(Math.sin(t*12))*.15*Math.min(1,sp);chick.children[0].position.y=.75+hop;chick.children[1].position.y=1.55+hop;
+ legs.forEach((l,i)=>l.rotation.x=Math.sin(t*12+i*Math.PI)*.6*Math.min(1,sp));chick.traverse(o=>{if(o.userData.wing)o.rotation.z=o.userData.wing*(.3+Math.sin(t*20)*.3)});
+ clouds.forEach((g,i)=>{g.position.x+=dt*.5;if(g.position.x>14)g.position.x=-14});
+ ctl.update();R.render(scene,cam)})();
+addEventListener("resize",()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();R.setSize(innerWidth,innerHeight)});
+</script></body></html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>4 色掌机风格 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}body{background:#2b2b33;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,"PingFang SC",sans-serif;overflow:hidden}
+.gb{background:#c9c6be;border-radius:14px 14px 60px 14px;padding:26px 26px 40px;box-shadow:0 20px 50px #000a,inset -6px -6px 0 #a9a69e;width:min(440px,96vw)}
+.scr{background:#5a5d6b;border-radius:10px 10px 36px 10px;padding:18px 26px 22px}
+.scr .lab{font-size:9px;color:#b8b8c8;letter-spacing:1px;margin-bottom:6px;display:flex;align-items:center;gap:6px}.led{width:8px;height:8px;border-radius:50%;background:#e33;box-shadow:0 0 6px #f44}
+canvas{width:100%;image-rendering:pixelated;display:block;background:#0f380f}
+.brand{font:italic 900 18px system-ui;color:#2f2f8a;margin:12px 0 18px}
+.ctl{display:flex;justify-content:space-between;align-items:center}
+.dpad{display:grid;grid-template-columns:repeat(3,38px);grid-template-rows:repeat(3,38px)}.dpad b{background:#222;border-radius:4px;cursor:pointer}
+.ab{display:flex;gap:14px;transform:rotate(-25deg)}.ab b{width:50px;height:50px;border-radius:50%;background:#8b1a4a;color:#ddd;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;box-shadow:0 3px 0 #5a0f30}
+#pal{display:flex;gap:6px;justify-content:center;margin-top:16px}#pal span{padding:3px 8px;border-radius:999px;background:#999;font-size:11px;cursor:pointer}
+p.tip{color:#999;font-size:12px;text-align:center;margin-top:10px}</style></head>
+<body><div><div class="gb"><div class="scr"><div class="lab"><span class="led"></span>DOT MATRIX WITH STEREO SOUND</div><canvas id="c" width="160" height="144"></canvas></div>
+<div class="brand">GrokBoy <small style="font-size:11px">掌机风</small></div>
+<div class="ctl"><div class="dpad"><i></i><b data-k="ArrowUp"></b><i></i><b data-k="ArrowLeft"></b><b style="background:#222"></b><b data-k="ArrowRight"></b><i></i><b data-k="ArrowDown"></b><i></i></div>
+<div class="ab"><b data-k="KeyX">B</b><b data-k="KeyZ">A</b></div></div>
+<div id="pal"><span data-p="0">原版绿</span><span data-p="1">口袋灰</span><span data-p="2">琥珀</span><span data-p="3">樱花</span></div></div>
+<p class="tip">方向键移动 · Z(A) 挥剑 · 收集全部金币，躲开史莱姆 · 支持点按虚拟按键</p></div>
+<script>
+// 160×144 分辨率，只用 4 种颜色（调色板可切换）；所有图块用 8×8 像素字符串定义
+const c=document.getElementById("c"),x=c.getContext("2d");x.imageSmoothingEnabled=false;
+const PALS=[["#e0f8d0","#88c070","#346856","#081820"],["#e8e8e8","#a8a8a8","#606060","#202020"],["#fff6d3","#f9a875","#eb6b6f","#7c3f58"],["#fff0f5","#f5a3c0","#a34f7a","#2e1530"]];let pi=0;
+const SPR={
+ grass:["00000000","00010000","00000000","00000100","01000000","00000000","00001000","00000000"],
+ tree:["00333300","03322330","33222233","32222223","33222233","03333330","00033000","00033000"],
+ water:["11111111","12211111","11111221","11111111","11221111","11111111","11111122","11111111"],
+ rock:["00000000","00333300","03222330","32212223","32222223","33222233","03333330","00000000"],
+ hero:["00333300","03111130","03131310","03111130","00333300","03322330","30333303","00300300"],
+ hero2:["00333300","03111130","03131310","03111130","00333300","03322330","03333330","03000030"],
+ coin:["00033000","00322300","03211230","03211230","03211230","03211230","00322300","00033000"],
+ slime:["00000000","00333300","03222230","32322323","32222223","32222223","03333330","00000000"],
+ heart:["00000000","03303300","32232230","32222230","03222300","00323000","00030000","00000000"]};
+function spr(n,X,Y,flip){const s=SPR[n];for(let j=0;j<8;j++)for(let i=0;i<8;i++){const v=+s[j][flip?7-i:i];if(v==0&&n!="grass"&&n!="water")continue;x.fillStyle=PALS[pi][v];x.fillRect(X+i,Y+j,1,1)}}
+// 地图 20×16（8px 格），最上面 2 行留给 HUD
+const MAP=["TTTTTTTTTTTTTTTTTTTT","T....c.....T......cT","T.TT...R.........R.T","T.T....~~~~...c....T","T...c..~~~~.....TT.T","T......~~~~.R...T..T","T..R.........c.....T","T.......TT.........T","Tc......TT....R..c.T","T....R.......~~~...T","T.............~~~..T","T..c...TT......c...T","TTTTTTTTTTTTTTTTTTTT"];
+let hero,coins,slimes,keys={},t=0,hp,score,swing=0,msg="",flash=0;
+function reset(){hero={x:16,y:16,f:0,dir:1,inv:0};coins=[];slimes=[];MAP.forEach((r,j)=>[...r].forEach((ch,i)=>{if(ch=="c")coins.push({x:i*8,y:j*8})}));
+ [[120,48],[56,72],[136,80],[96,24]].forEach(([a,b])=>slimes.push({x:a,y:b,vx:Math.random()<.5?.4:-.4,vy:0,hp:2,hit:0}));hp=3;score=0;msg=""}reset();
+const solid=(px,py)=>{const ch=(MAP[Math.floor(py/8)]||"T")[Math.floor(px/8)];return ch=="T"||ch=="R"||ch=="~"};
+function move(o,dx,dy){const nx=o.x+dx,ny=o.y+dy;if(!solid(nx+1,o.y+2)&&!solid(nx+6,o.y+2)&&!solid(nx+1,o.y+7)&&!solid(nx+6,o.y+7))o.x=nx;else if(o.vx)o.vx*=-1;if(!solid(o.x+1,ny+2)&&!solid(o.x+6,ny+2)&&!solid(o.x+1,ny+7)&&!solid(o.x+6,ny+7))o.y=ny;else if(o.vy)o.vy*=-1}
+onkeydown=e=>{keys[e.code]=1;if(e.code.startsWith("Arrow"))e.preventDefault();if(e.code=="KeyZ")attack();if(msg&&e.code=="KeyX")reset()};onkeyup=e=>keys[e.code]=0;
+document.querySelectorAll("[data-k]").forEach(b=>{b.onpointerdown=()=>{keys[b.dataset.k]=1;if(b.dataset.k=="KeyZ")attack();if(msg&&b.dataset.k=="KeyX")reset()};b.onpointerup=b.onpointerleave=()=>keys[b.dataset.k]=0});
+document.querySelectorAll("#pal span").forEach(s=>s.onclick=()=>pi=+s.dataset.p);
+function attack(){if(msg){reset();return}swing=10;for(const s of slimes){if(Math.abs(s.x-(hero.x+hero.dir*8))<9&&Math.abs(s.y-hero.y)<9&&!s.hit){s.hp--;s.hit=15;s.x+=hero.dir*6;flash=4;if(s.hp<=0){s.dead=1;score+=50}}}}
+const demo=new URLSearchParams(location.search).get("demo");
+function update(){t++;if(msg)return;let dx=(keys.ArrowRight?1:0)-(keys.ArrowLeft?1:0),dy=(keys.ArrowDown?1:0)-(keys.ArrowUp?1:0);
+ if(demo){const tg=coins[0];if(tg){dx=Math.sign(tg.x-hero.x);dy=Math.sign(tg.y-hero.y)}if(t%40==0)attack()}
+ if(dx)hero.dir=dx;if(dx||dy){hero.f++;move(hero,dx*.8,0);move(hero,0,dy*.8)}
+ coins=coins.filter(k=>{if(Math.abs(k.x-hero.x)<6&&Math.abs(k.y-hero.y)<6){score+=10;return false}return true});
+ for(const s of slimes){s.hit=Math.max(0,s.hit-1);if(t%90==0){const a=Math.floor(Math.random()*4);s.vx=[.4,-.4,0,0][a];s.vy=[0,0,.4,-.4][a]}move(s,s.vx,0);move(s,0,s.vy);
+  if(!s.dead&&hero.inv<=0&&Math.abs(s.x-hero.x)<6&&Math.abs(s.y-hero.y)<6){hp--;hero.inv=60;flash=6;if(hp<=0)msg="GAME OVER"}}
+ slimes=slimes.filter(s=>!s.dead);hero.inv--;swing=Math.max(0,swing-1);flash=Math.max(0,flash-1);if(!coins.length&&!msg)msg="YOU WIN!"}
+function txt(s,X,Y,col=3){// 3×5 像素字体（只含需要的字符）
+ const F={"0":"111101101101111","1":"010110010010111","2":"111001111100111","3":"111001111001111","4":"101101111001001","5":"111100111001111","6":"111100111101111","7":"111001001001001","8":"111101111101111","9":"111101111001111","G":"111100101101111","A":"010101111101101","M":"101111111101101","E":"111100110100111","O":"111101101101111","V":"101101101101010","R":"110101110101101","Y":"101101010010010","U":"101101101101111","W":"101101111111101","I":"111010010010111","N":"101111111111101","!":"010010010000010"," ":"000000000000000","x":"000101010101000","P":"110101110100100","S":"111100111001111","Z":"111001010100111","T":"111010010010010","B":"110101110101110"};
+ x.fillStyle=PALS[pi][col];[...s].forEach((ch,k)=>{const g=F[ch]||F[" "];for(let i=0;i<15;i++)if(g[i]=="1")x.fillRect(X+k*4+i%3,Y+Math.floor(i/3),1,1)})}
+function draw(){x.fillStyle=PALS[pi][flash%2?3:0];x.fillRect(0,0,160,144);
+ x.save();x.translate(0,40);MAP.forEach((r,j)=>[...r].forEach((ch,i)=>{const X=i*8,Y=j*8;spr(ch=="~"?"water":"grass",X,Y);if(ch=="T")spr("tree",X,Y);if(ch=="R")spr("rock",X,Y)}));
+ for(const k of coins)if((t>>4)%4!=3)spr("coin",k.x,k.y+((t>>3)%2));
+ for(const s of slimes)if(!(s.hit&&(t>>1)%2))spr("slime",s.x,s.y+((t>>4)%2));
+ if(!(hero.inv>0&&(t>>2)%2))spr((hero.f>>3)%2?"hero2":"hero",hero.x,hero.y,hero.dir<0);
+ if(swing){x.fillStyle=PALS[pi][3];const sx=hero.x+(hero.dir>0?8:-6);x.fillRect(sx,hero.y+2+(10-swing)/3,6,1);x.fillRect(sx+(hero.dir>0?5:0),hero.y+1,1,3)}
+ x.restore();
+ x.fillStyle=PALS[pi][0];x.fillRect(0,0,160,40);x.fillStyle=PALS[pi][3];x.fillRect(0,38,160,2);
+ for(let i=0;i<3;i++)if(i<hp)spr("heart",4+i*9,6);txt("SCORE "+String(score).padStart(4,"0"),88,8);txt("x"+coins.length,8,22,2);spr("coin",18,19);txt("PRESS Z",110,24,2);
+ if(msg){x.fillStyle=PALS[pi][0];x.fillRect(30,72,100,30);x.fillStyle=PALS[pi][3];x.strokeStyle=PALS[pi][3];x.strokeRect(30.5,72.5,99,29);txt(msg,80-msg.length*2,80);txt("PRESS B",66,92,2)}}
+(function loop(){update();draw();requestAnimationFrame(loop)})();
+</script></body></html>

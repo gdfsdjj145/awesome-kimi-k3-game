@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>天气系统 · 参考实现</title>
+<style>*{margin:0}body{background:#000;overflow:hidden;font-family:system-ui,"PingFang SC",sans-serif;color:#fff}canvas{display:block}
+#p{position:fixed;top:12px;left:12px;background:#0008;padding:10px 14px;border-radius:10px;font-size:13px;line-height:2}
+#p button{margin:1px;padding:4px 10px;border-radius:6px;border:1px solid #666;background:#1b1f2b;color:#fff;cursor:pointer}#p button.on{background:#3b5bdb;border-color:#9bb0ff}
+input[type=range]{vertical-align:middle;width:120px}</style></head>
+<body><canvas id="c"></canvas><div id="p"><b>🌦️ 天气系统</b><br><span id="w"></span><br>强度 <input type="range" id="int" min="0.2" max="1.5" step="0.1" value="1"> 风 <input type="range" id="wind" min="-3" max="3" step="0.1" value="0.8"><br><label><input type="checkbox" id="cyc"> 自动循环天气</label></div>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d");let W,H,G;function rs(){W=c.width=innerWidth;H=c.height=innerHeight;G=H*.78}rs();addEventListener("resize",rs);
+const WS={sunny:"☀️ 晴",cloudy:"☁️ 多云",rain:"🌧️ 雨",storm:"⛈️ 雷暴",snow:"❄️ 雪",fog:"🌫️ 雾",sakura:"🌸 樱花"};let w="rain";
+const ww=document.getElementById("w");for(const k in WS){const b=document.createElement("button");b.textContent=WS[k];b.onclick=()=>set(k);ww.appendChild(b)}
+function set(k){w=k;[...ww.children].forEach((b,i)=>b.classList.toggle("on",Object.keys(WS)[i]==k))}
+const q=new URLSearchParams(location.search).get("w");set(WS[q]?q:"rain");
+let P=[],splash=[],flash=0,bolt=null,t=0,snowAcc=0,cl=0,wet=0,fog=0;const R=(a,b)=>a+Math.random()*(b-a);
+const clouds=Array.from({length:9},(_,i)=>({x:R(0,1),y:R(.05,.3),s:R(.6,1.4),v:R(.2,.5)}));
+const tgt={sunny:[0,0,0],cloudy:[.6,0,0],rain:[.85,1,0],storm:[1,1,0],snow:[.7,0,0],fog:[.5,0,1],sakura:[.15,0,0]};
+function sky(){const [cTarget,wetT,fogT]=tgt[w];cl+=(cTarget-cl)*.02;wet+=(wetT-wet)*.01;fog+=(fogT-fog)*.02;
+ const g=x.createLinearGradient(0,0,0,G);const k=cl;const top=[40+(1-k)*50,90+(1-k)*80,160+(1-k)*80].map((v,i)=>v*(1-k*.6)+[60,65,75][i]*k*.6),bot=[180+(1-k)*60,210+(1-k)*30,230];
+ if(w=="sakura"){top[0]+=40;bot[0]=255;bot[1]=220}
+ g.addColorStop(0,`rgb(${top.map(v=>v|0)})`);g.addColorStop(1,`rgb(${bot.map(v=>v*(1-k*.4)|0)})`);x.fillStyle=g;x.fillRect(0,0,W,G);
+ if(cl<.8){x.globalAlpha=1-cl;x.fillStyle="#fff6c0";x.shadowColor="#ffe680";x.shadowBlur=60;x.beginPath();x.arc(W*.78,H*.18,50,0,7);x.fill();x.shadowBlur=0;x.globalAlpha=1}
+ const wind=+document.getElementById("wind").value;
+ for(const cd of clouds){cd.x+=(cd.v*.0004)*(1+wind);if(cd.x>1.2)cd.x=-.2;if(cd.x<-.2)cd.x=1.2;const a=Math.min(1,cl*1.2+.15),col=255-cl*130;x.fillStyle=`rgba(${col},${col},${col+10},${a})`;const X=cd.x*W,Y=cd.y*H,s=cd.s*60;
+  for(const [dx,dy,r] of [[0,0,1],[.9,-.3,1.2],[1.9,0,1],[1,.3,1]]){x.beginPath();x.arc(X+dx*s,Y+dy*s,r*s*.7,0,7);x.fill()}}}
+function ground(){x.fillStyle=w=="snow"?`rgb(${150+snowAcc*100|0},${160+snowAcc*95|0},${170+snowAcc*85|0})`:`rgb(${60-wet*25|0},${100-wet*35|0},${50-wet*15|0})`;x.fillRect(0,G,W,H-G);
+ // 小屋和树
+ x.fillStyle="#5a3a2a";x.fillRect(W*.2,G-90,120,90);x.fillStyle="#8a2a2a";x.beginPath();x.moveTo(W*.2-15,G-90);x.lineTo(W*.2+60,G-150);x.lineTo(W*.2+135,G-90);x.fill();
+ if(w=="snow"&&snowAcc>.05){x.fillStyle="#fff";x.beginPath();x.moveTo(W*.2-15,G-90);x.lineTo(W*.2+60,G-150);x.lineTo(W*.2+135,G-90);x.lineTo(W*.2+135,G-90+snowAcc*-12);x.lineTo(W*.2+60,G-150-snowAcc*8);x.lineTo(W*.2-15,G-90-snowAcc*12);x.fill()}
+ x.fillStyle=cl>.9?"#ffd86a":"#334";x.fillRect(W*.2+20,G-60,24,24);
+ for(const tx of [.55,.65,.8]){x.fillStyle="#4a3020";x.fillRect(W*tx-6,G-60,12,60);x.fillStyle=w=="sakura"?"#ffb7d0":"#2f6b3a";const sway=Math.sin(t*.03+tx*9)*(+document.getElementById("wind").value)*3;x.beginPath();x.arc(W*tx+sway,G-90,42,0,7);x.fill()}
+ if(wet>.3){x.fillStyle=`rgba(150,180,220,${(wet-.3)*.35})`;x.fillRect(0,G+5,W,H-G)}}
+function spawn(){const I=+document.getElementById("int").value,wind=+document.getElementById("wind").value;
+ if(w=="rain"||w=="storm"){const n=(w=="storm"?14:8)*I;for(let i=0;i<n;i++)P.push({k:"r",x:R(-200,W+200),y:R(-50,0),vx:wind*2+(w=="storm"?2:0),vy:R(14,20),l:R(10,20)})}
+ if(w=="snow"&&Math.random()<I)for(let i=0;i<3*I;i++)P.push({k:"s",x:R(-100,W+100),y:-10,vx:wind*.5,vy:R(.6,1.6),r:R(1,3.5),ph:R(0,7)});
+ if(w=="sakura"&&Math.random()<.4*I)P.push({k:"p",x:R(-100,W),y:-10,vx:wind+R(.5,1.5),vy:R(.8,1.6),r:R(4,7),rot:R(0,7),vr:R(-.05,.05),ph:R(0,7)});
+ if(w=="storm"&&Math.random()<.006*I){flash=1;bolt=mkBolt(R(W*.2,W*.9),0,G*.9)}}
+function mkBolt(x0,y0,y1){const pts=[[x0,y0]];let X=x0,Y=y0;while(Y<y1){X+=R(-30,30);Y+=R(15,40);pts.push([X,Y]);if(Math.random()<.15)pts.push(null,[X,Y])}return{pts,l:1}}
+function update(){t++;spawn();if(w=="snow")snowAcc=Math.min(1,snowAcc+.0006);else snowAcc=Math.max(0,snowAcc-.002);
+ for(const p of P){if(p.k=="s"){p.ph+=.03;p.x+=p.vx+Math.sin(p.ph)*.6;p.y+=p.vy}else if(p.k=="p"){p.ph+=.04;p.x+=p.vx+Math.sin(p.ph);p.y+=p.vy+Math.cos(p.ph)*.4;p.rot+=p.vr}else{p.x+=p.vx;p.y+=p.vy}
+  if(p.y>G+R(0,H-G)){p.dead=1;if(p.k=="r"&&Math.random()<.5)splash.push({x:p.x,y:p.y,l:1})}}
+ P=P.filter(p=>!p.dead&&p.x>-300&&p.x<W+300);splash.forEach(s=>s.l-=.08);splash=splash.filter(s=>s.l>0);flash*=.85;if(bolt){bolt.l-=.06;if(bolt.l<=0)bolt=null}}
+function draw(){sky();ground();
+ x.strokeStyle="rgba(200,220,255,.55)";x.lineWidth=1.2;x.beginPath();for(const p of P)if(p.k=="r"){x.moveTo(p.x,p.y);x.lineTo(p.x-p.vx*p.l/p.vy,p.y-p.l)}x.stroke();
+ x.strokeStyle="rgba(200,220,255,.6)";for(const s of splash){x.globalAlpha=s.l;x.beginPath();x.ellipse(s.x,s.y,(1-s.l)*8+2,(1-s.l)*2+.5,0,0,7);x.stroke()}x.globalAlpha=1;
+ x.fillStyle="#fff";for(const p of P)if(p.k=="s"){x.globalAlpha=.85;x.beginPath();x.arc(p.x,p.y,p.r,0,7);x.fill()}x.globalAlpha=1;
+ for(const p of P)if(p.k=="p"){x.save();x.translate(p.x,p.y);x.rotate(p.rot);x.scale(1,Math.abs(Math.sin(p.ph))*.7+.3);x.fillStyle="#ffc0d8";x.beginPath();x.ellipse(0,0,p.r,p.r*.6,0,0,7);x.fill();x.restore()}
+ if(bolt){x.strokeStyle=`rgba(230,240,255,${bolt.l})`;x.shadowColor="#9cf";x.shadowBlur=20;x.lineWidth=3;x.beginPath();let pen=false;for(const pt of bolt.pts){if(!pt){pen=false;continue}pen?x.lineTo(...pt):x.moveTo(...pt);pen=true}x.stroke();x.shadowBlur=0}
+ if(flash>.02){x.fillStyle=`rgba(230,235,255,${flash*.6})`;x.fillRect(0,0,W,H)}
+ if(fog>.02){for(let i=0;i<4;i++){const g=x.createLinearGradient(0,G-200+i*40,0,H);g.addColorStop(0,"rgba(220,225,235,0)");g.addColorStop(.4,`rgba(220,225,235,${fog*.35})`);g.addColorStop(1,`rgba(220,225,235,${fog*.5})`);x.fillStyle=g;x.fillRect(Math.sin(t*.003+i)*80-100,0,W+200,H)}}
+ if(cl>.5&&w!="sakura"){x.fillStyle=`rgba(10,15,30,${(cl-.5)*.5})`;x.fillRect(0,0,W,H)}}
+let cycT=0;(function loop(){update();draw();if(document.getElementById("cyc").checked&&++cycT%600==0){const ks=Object.keys(WS);set(ks[(ks.indexOf(w)+1)%ks.length])}requestAnimationFrame(loop)})();
+</script></body></html>

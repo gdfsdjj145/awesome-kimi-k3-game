@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>抽卡结算界面 · 参考实现</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#3a2a6e,#0c0818 70%);color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;overflow-x:hidden}
+canvas#fx{position:fixed;inset:0;pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:22px 16px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+h1{font-size:26px;letter-spacing:4px;text-shadow:0 0 14px #9b7bff}
+.btns{display:flex;gap:10px}button{padding:9px 20px;border-radius:999px;border:none;color:#fff;font-size:15px;cursor:pointer;background:linear-gradient(135deg,#7b5cff,#c14cff)}
+button.gold{background:linear-gradient(135deg,#ffb300,#ff6a00)}button.ghost{background:#ffffff14;border:1px solid #ffffff30}
+.main{display:grid;grid-template-columns:1fr 300px;gap:18px}
+@media(max-width:860px){.main{grid-template-columns:1fr}}
+.panel{background:#ffffff0c;border:1px solid #ffffff1c;border-radius:16px;padding:16px;backdrop-filter:blur(6px)}
+.best{display:flex;gap:18px;align-items:center;padding:18px;border-radius:16px;margin-bottom:16px;position:relative;overflow:hidden}
+.best.r5{background:linear-gradient(110deg,#5a3a00,#2a1600);border:2px solid #ffd24a;box-shadow:0 0 30px #ffb30066}
+.best.r4{background:linear-gradient(110deg,#3a1f5c,#1a0f2e);border:2px solid #c06bff}
+.best.r3{background:linear-gradient(110deg,#1a3050,#0f1a2e);border:2px solid #4f8cff}
+.best .art{font-size:90px;filter:drop-shadow(0 0 20px currentColor);animation:pop .7s cubic-bezier(.3,1.6,.5,1)}
+.best .shine{position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,#ffffff40 50%,transparent 65%);background-size:250% 100%;animation:sh 2.5s linear infinite}
+@keyframes sh{from{background-position:150% 0}to{background-position:-100% 0}}@keyframes pop{from{transform:scale(.2) rotate(-20deg);opacity:0}}
+.best .nm{font-size:28px;font-weight:800}.best .st{color:#ffd24a;font-size:20px;letter-spacing:3px}.best .new{display:inline-block;background:#ff3a6a;font-size:12px;padding:2px 8px;border-radius:6px;margin-left:8px;vertical-align:middle}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.c{aspect-ratio:3/4;border-radius:12px;border:2px solid;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;opacity:0;transform:translateY(20px) scale(.9);transition:.4s cubic-bezier(.3,1.4,.5,1)}
+.c.in{opacity:1;transform:none}.c .i{font-size:40px}.c .n{font-size:12px;margin-top:4px}.c .s{font-size:11px}
+.c .tag{position:absolute;top:4px;right:4px;font-size:10px;padding:1px 5px;border-radius:4px;background:#ff3a6a}
+.c .dup{position:absolute;bottom:4px;font-size:10px;opacity:.85;background:#0007;padding:1px 6px;border-radius:4px}
+.c.r3{border-color:#4f8cff;background:linear-gradient(160deg,#1e3a6b,#122244)}.c.r4{border-color:#c06bff;background:linear-gradient(160deg,#4a2477,#24123d);box-shadow:0 0 12px #c06bff88}
+.c.r5{border-color:#ffd24a;background:linear-gradient(160deg,#7a4b00,#3a2200);box-shadow:0 0 18px #ffcc33}
+.stats{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}.stat{flex:1;min-width:110px;background:#0004;border-radius:10px;padding:10px;text-align:center}.stat b{display:block;font-size:22px}
+.stat small{opacity:.6;font-size:12px}
+.bar{height:10px;border-radius:5px;background:#0006;overflow:hidden;margin:6px 0}.bar i{display:block;height:100%;background:linear-gradient(90deg,#ffd24a,#ff7a00);transition:width .8s}
+.side h3{font-size:15px;margin:4px 0 8px;color:#ffd24a}
+.res{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px dashed #ffffff18}
+.hist{max-height:300px;overflow:auto;font-size:13px}.hist div{display:flex;justify-content:space-between;padding:4px 2px;border-bottom:1px solid #ffffff10}
+.hist .r5{color:#ffd24a}.hist .r4{color:#d49bff}
+.rate{font-size:12px;opacity:.7;line-height:1.7;margin-top:10px}
+#toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#000c;padding:8px 18px;border-radius:999px;opacity:0;transition:.3s;z-index:9}
+</style></head><body><canvas id="fx"></canvas>
+<div class="wrap">
+<header><h1>✦ 祈愿结算 ✦</h1><div class="btns"><button id="b1">单抽 ×1</button><button class="gold" id="b10">十连 ×10</button><button class="ghost" id="share">📸 分享卡片</button><button class="ghost" id="reset">重置</button></div></header>
+<div class="main">
+ <div>
+  <div class="best panel" id="best"></div>
+  <div class="panel"><div class="grid" id="grid"></div>
+   <div class="stats" id="stats"></div>
+   <div style="margin-top:12px;font-size:13px">距离保底 <b id="pityT"></b><div class="bar"><i id="pityB"></i></div></div>
+  </div>
+ </div>
+ <div class="panel side">
+  <h3>🎁 本次获得资源</h3><div id="res"></div>
+  <h3 style="margin-top:14px">📜 祈愿记录</h3><div class="hist" id="hist"></div>
+  <div class="rate">概率公示：五星 1.6% · 四星 13% · 三星 85.4%<br>90 抽内必出五星；十连保底至少一个四星。<br>重复角色转化为「星辉」，三星武器转化为「星尘」。</div>
+ </div>
+</div></div><div id="toast"></div>
+<script>
+const P={5:[["🐉","苍龙·烛照"],["🔥","焰之女帝"],["⚡","雷霆剑圣"]],4:[["🦊","九尾狐"],["🗡️","影刃"],["🌙","月之巫女"],["🛡️","圣盾骑士"]],3:[["🏹","长弓"],["📜","古卷"],["🧪","药剂"],["🪓","战斧"],["💎","宝石"]]};
+let S=JSON.parse(localStorage.gachaRes||"null")||{total:0,pity:0,owned:{},hist:[],stardust:0,starglitter:0};
+const $=s=>document.querySelector(s);
+function save(){localStorage.gachaRes=JSON.stringify(S)}
+function roll(){S.total++;S.pity++;let r=Math.random(),rar=(S.pity>=90||r<.016)?5:r<.146?4:3;if(rar==5)S.pity=0;const l=P[rar],[i,n]=l[Math.random()*l.length|0];return{rar,i,n}}
+function pull(k){const got=[];for(let j=0;j<k;j++)got.push(roll());
+ if(k==10&&!got.some(g=>g.rar>=4)){const[i,n]=P[4][Math.random()*4|0];got[9]={rar:4,i,n}}
+ let dust=0,glit=0;got.forEach(g=>{g.isNew=!S.owned[g.n];S.owned[g.n]=(S.owned[g.n]||0)+1;if(g.rar==3)dust+=15;else if(!g.isNew)glit+=g.rar==5?10:2;S.hist.unshift({...g,t:S.total})});
+ S.hist=S.hist.slice(0,200);S.stardust+=dust;S.starglitter+=glit;save();render(got,{dust,glit})}
+function render(got,res){const best=[...got].sort((a,b)=>b.rar-a.rar)[0];const B=$("#best");B.className="best panel r"+best.rar;
+ B.innerHTML=`<div class="shine"></div><div class="art">${best.i}</div><div><div style="opacity:.7;font-size:13px">本次最佳</div><div class="nm">${best.n}${best.isNew?'<span class="new">NEW</span>':""}</div><div class="st">${"★".repeat(best.rar)}</div><div style="font-size:13px;opacity:.75;margin-top:6px">${best.rar==5?"🎉 恭喜出金！":best.rar==4?"不错的收获！":"下次一定～"}</div></div>`;
+ const g=$("#grid");g.innerHTML="";g.style.gridTemplateColumns=`repeat(${Math.min(got.length,5)},1fr)`;
+ [...got].sort((a,b)=>b.rar-a.rar).forEach((c,k)=>{const d=document.createElement("div");d.className="c r"+c.rar;d.innerHTML=`${c.isNew?'<span class="tag">NEW</span>':""}<div class="i">${c.i}</div><div class="n">${c.n}</div><div class="s">${"★".repeat(c.rar)}</div>${!c.isNew&&c.rar>3?`<span class="dup">→ 星辉 ×${c.rar==5?10:2}</span>`:c.rar==3?'<span class="dup">→ 星尘 ×15</span>':""}`;g.appendChild(d);
+  setTimeout(()=>{d.classList.add("in");if(c.rar>=4){const r=d.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,c.rar==5?"#ffd24a":"#c06bff",c.rar==5?80:30)}},80*k+200)});
+ const n5=got.filter(c=>c.rar==5).length,n4=got.filter(c=>c.rar==4).length,nw=got.filter(c=>c.isNew).length;
+ $("#stats").innerHTML=[["五星",n5,"#ffd24a"],["四星",n4,"#d49bff"],["三星",got.length-n5-n4,"#8fb4ff"],["新角色/物品",nw,"#ff7a9a"]].map(([a,b,c])=>`<div class="stat"><b style="color:${c}">${b}</b><small>${a}</small></div>`).join("");
+ $("#res").innerHTML=`<div class="res"><span>✨ 星辉</span><span>+${res.glit}（共 ${S.starglitter}）</span></div><div class="res"><span>🌟 星尘</span><span>+${res.dust}（共 ${S.stardust}）</span></div><div class="res"><span>🎟️ 累计祈愿</span><span>${S.total} 次</span></div><div class="res"><span>📦 图鉴收集</span><span>${Object.keys(S.owned).length} / 12</span></div>`;
+ $("#pityT").textContent=(90-S.pity)+" 抽";$("#pityB").style.width=(S.pity/90*100)+"%";
+ $("#hist").innerHTML=S.hist.slice(0,60).map(h=>`<div class="r${h.rar}"><span>#${h.t} ${h.i} ${h.n}</span><span>${"★".repeat(h.rar)}</span></div>`).join("")}
+function toast(t){const e=$("#toast");e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1600)}
+// 分享卡片：用 Canvas 画一张结算图并下载
+$("#share").onclick=()=>{const top=S.hist.slice(0,10);if(!top.length)return toast("先抽一次吧");const c=document.createElement("canvas");c.width=800;c.height=450;const x=c.getContext("2d");
+ const g=x.createLinearGradient(0,0,800,450);g.addColorStop(0,"#3a2a6e");g.addColorStop(1,"#0c0818");x.fillStyle=g;x.fillRect(0,0,800,450);
+ x.fillStyle="#fff";x.font="bold 34px sans-serif";x.fillText("✦ 我的祈愿结算 ✦",230,60);x.font="16px sans-serif";x.fillText(`累计 ${S.total} 抽 · 图鉴 ${Object.keys(S.owned).length}/12`,290,90);
+ top.forEach((h,k)=>{const cx=60+(k%5)*140,cy=120+Math.floor(k/5)*150;x.fillStyle=h.rar==5?"#7a4b00":h.rar==4?"#4a2477":"#1e3a6b";x.strokeStyle=h.rar==5?"#ffd24a":h.rar==4?"#c06bff":"#4f8cff";x.lineWidth=3;x.beginPath();x.roundRect(cx,cy,120,135,12);x.fill();x.stroke();
+  x.font="48px serif";x.textAlign="center";x.fillText(h.i,cx+60,cy+65);x.fillStyle="#fff";x.font="14px sans-serif";x.fillText(h.n,cx+60,cy+98);x.fillStyle="#ffd24a";x.fillText("★".repeat(h.rar),cx+60,cy+120);x.textAlign="left"});
+ const a=document.createElement("a");a.download="祈愿结算.png";a.href=c.toDataURL();a.click();toast("已生成分享图片")};
+$("#b1").onclick=()=>pull(1);$("#b10").onclick=()=>pull(10);$("#reset").onclick=()=>{localStorage.removeItem("gachaRes");location.reload()};
+const fx=$("#fx"),fc=fx.getContext("2d");let parts=[];function rs(){fx.width=innerWidth;fx.height=innerHeight}rs();addEventListener("resize",rs);
+function burst(x,y,c,n){for(let i=0;i<n;i++){const a=Math.random()*7,v=Math.random()*6+1;parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,c})}}
+(function loop(){fc.clearRect(0,0,fx.width,fx.height);fc.globalCompositeOperation="lighter";parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.1;p.l-=.015;fc.globalAlpha=Math.max(0,p.l);fc.fillStyle=p.c;fc.beginPath();fc.arc(p.x,p.y,2.5,0,7);fc.fill()});parts=parts.filter(p=>p.l>0);requestAnimationFrame(loop)})();
+if(new URLSearchParams(location.search).get("demo")){localStorage.removeItem("gachaRes");S={total:0,pity:85,owned:{},hist:[],stardust:0,starglitter:0};pull(10)}else if(S.hist.length)render(S.hist.slice(0,10),{dust:0,glit:0});else pull(10);
+</script></body></html>

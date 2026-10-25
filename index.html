@@ -42,7 +42,7 @@ footer{max-width:1100px;margin:28px auto 0;font-size:12px;opacity:.5;line-height
 <nav id="nav"></nav><main id="main"></main>
 <footer>点「复制提示词」会读取对应目录下的 prompt.md 并复制到剪贴板。</footer>
 <script>
-const CATS=["玩法","卡牌与抽卡","战斗特效","3D 场景","UI","美术风格"];
+const CATS=["玩法","卡牌与抽卡","战斗特效","粒子与光效","3D 场景","Blender","UI","美术风格"];
 const EFFECTS=[
  {slug:"platformer",cat:"玩法",name:"平台跳跃",desc:"横版关卡、二段跳、踩敌人、金币、尖刺与终点旗，挤压回弹手感。",engine:"Canvas 2D"},
  {slug:"pinball",cat:"玩法",name:"弹球",desc:"霓虹弹珠台：挡板、蓄力发射、弹力柱、目标灯倍率、子步物理防穿透。",engine:"Canvas 2D"},
@@ -56,7 +56,18 @@ const EFFECTS=[
  {slug:"voxel-island",cat:"3D 场景",name:"体素小岛",desc:"程序生成体素岛屿与树木，波动水面，日月公转的昼夜循环，OrbitControls 转视角。",engine:"Three.js"},
  {slug:"lowpoly-town",cat:"3D 场景",name:"低多边形小镇",desc:"程序生成房屋、树木、道路、行驶的小车与路灯，白天 / 夜晚切换。",engine:"Three.js"},
  {slug:"game-ui-kit",cat:"UI",name:"游戏 UI 套件",desc:"主菜单、设置、血条 / 法力条、技能栏、可拖拽背包、打字机对话框。",engine:"HTML + CSS"},
- {slug:"art-style-switch",cat:"美术风格",name:"同一小游戏的三种美术风格",desc:"「星星收集者」在像素、卡通渲染、赛博朋克之间实时切换。",engine:"Canvas 2D"}
+ {slug:"art-style-switch",cat:"美术风格",name:"同一小游戏的三种美术风格",desc:"「星星收集者」在像素、卡通渲染、赛博朋克之间实时切换。",engine:"Canvas 2D"},
+ {slug:"gacha-result-screen",cat:"卡牌与抽卡",name:"抽卡结算界面",desc:"十连结果结算页：最佳卡展示、NEW/重复转化、保底进度、资源变化、历史记录、分享图下载。",engine:"Canvas 2D + DOM"},
+ {slug:"particle-trail",cat:"粒子与光效",name:"粒子拖尾",desc:"跟随鼠标/触摸的 6 种粒子拖尾：彗星、丝带、火焰、魔法星尘、电光、墨迹。",engine:"Canvas 2D"},
+ {slug:"fireworks",cat:"粒子与光效",name:"烟花",desc:"7 种烟花（牡丹、垂柳、环形、爱心、交叉、棕榈、闪烁）+ 文字烟花「新年快乐」+ 压轴连发。",engine:"Canvas 2D"},
+ {slug:"magic-circle",cat:"粒子与光效",name:"魔法阵",desc:"5 种元素魔法阵，经历展开→蓄力→释放三阶段，带符文旋转、光柱和粒子。",engine:"Canvas 2D"},
+ {slug:"screen-transitions",cat:"UI",name:"转场动画合集",desc:"10 种游戏场景转场：淡入淡出、圆形收缩、百叶窗、像素溶解、菱形格、擦除、碎片等。",engine:"Canvas 2D"},
+ {slug:"weather-system",cat:"3D 场景",name:"天气系统",desc:"2.5D 小场景里切换晴、多云、雨、雷暴、雪、雾、樱花 7 种天气，强度和风力可调。",engine:"Canvas 2D"},
+ {slug:"blender-scene-script",cat:"Blender",name:"Blender 场景脚本：低多边形篝火营地",desc:"一份可在 Blender 4.x 里运行的 Python 脚本生成低多边形篝火营地；页面内有 Three.js 预览、真实 Blender 渲染图和脚本下载。",engine:"Blender Python (bpy) + Three.js"},
+ {slug:"style-ink-wash",cat:"美术风格",name:"水墨山水风格",desc:"宣纸肌理、层叠晕染远山、孤舟随鼠标、点击落墨、竖排题诗与印章，空格切换晨暮。",engine:"Canvas 2D"},
+ {slug:"style-gameboy",cat:"美术风格",name:"GameBoy 四色掌机风格",desc:"160×144 分辨率、4 色调色板的俯视角小游戏：收集金币、躲史莱姆、挥剑，带掌机外壳与虚拟按键。",engine:"Canvas 2D"},
+ {slug:"style-toon-3d",cat:"美术风格",name:"三渲二卡通 3D 风格",desc:"Three.js MeshToonMaterial + 色阶贴图 + 反向外壳描边的卡通小岛，可切 2/3/5 阶与写实对比。",engine:"Three.js"},
+ {slug:"style-papercut",cat:"美术风格",name:"剪纸风格",desc:"多层剪纸山水视差：层间投影、镂空窗花纹样、宝塔与鹿，点击放飞孔明灯，4 套配色。",engine:"Canvas 2D"}
 ];
 const main=document.getElementById("main"),nav=document.getElementById("nav");
 for(const cat of CATS){const items=EFFECTS.filter(e=>e.cat==cat);if(!items.length)continue;

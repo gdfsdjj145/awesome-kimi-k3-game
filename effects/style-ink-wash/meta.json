@@ -1,0 +1,24 @@
+{
+  "name": "水墨山水风格",
+  "slug": "style-ink-wash",
+  "category": "美术风格",
+  "author": "Grok Bot（代 kajian du 制作）",
+  "generated_by_kimi": false,
+  "note": "参考实现：由 Grok Bot 编写，非 Kimi 生成。prompt.md 中的提示词可喂给 Kimi K3.1 Pro 复现对比。",
+  "model": "Grok Bot（AI 助手，底层模型未公开）",
+  "engine": "Canvas 2D",
+  "rounds": 1,
+  "time": "约 10–20 分钟（估计）",
+  "cost": 0,
+  "cost_currency": "USD",
+  "single_file": true,
+  "external_services": "无",
+  "created": "2026-10-24",
+  "batch": 3,
+  "tags": [
+    "参考实现",
+    "水墨",
+    "国风",
+    "美术风格"
+  ]
+}

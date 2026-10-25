@@ -65,6 +65,17 @@
 | 3D 场景 | 低多边形小镇 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/lowpoly-town/) | [prompt.md](effects/lowpoly-town/prompt.md) | 🧪 参考实现 |
 | UI | 游戏 UI 套件（血条、背包、对话框、主菜单） | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/game-ui-kit/) | [prompt.md](effects/game-ui-kit/prompt.md) | 🧪 参考实现 |
 | 美术风格 | 同一小游戏的三种美术风格（像素 / 卡通渲染 / 赛博） | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/art-style-switch/) | [prompt.md](effects/art-style-switch/prompt.md) | 🧪 参考实现 |
+| 卡牌与抽卡 | 抽卡结算界面 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/gacha-result-screen/) | [prompt.md](effects/gacha-result-screen/prompt.md) | 🧪 参考实现 |
+| 粒子与光效 | 粒子拖尾 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/particle-trail/) | [prompt.md](effects/particle-trail/prompt.md) | 🧪 参考实现 |
+| 粒子与光效 | 烟花 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/fireworks/) | [prompt.md](effects/fireworks/prompt.md) | 🧪 参考实现 |
+| 粒子与光效 | 魔法阵 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/magic-circle/) | [prompt.md](effects/magic-circle/prompt.md) | 🧪 参考实现 |
+| UI | 转场动画合集 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/screen-transitions/) | [prompt.md](effects/screen-transitions/prompt.md) | 🧪 参考实现 |
+| 3D 场景 | 天气系统 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/weather-system/) | [prompt.md](effects/weather-system/prompt.md) | 🧪 参考实现 |
+| Blender | Blender 场景脚本：低多边形篝火营地 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/blender-scene-script/) | [prompt.md](effects/blender-scene-script/prompt.md) | 🧪 参考实现 |
+| 美术风格 | 水墨山水风格 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/style-ink-wash/) | [prompt.md](effects/style-ink-wash/prompt.md) | 🧪 参考实现 |
+| 美术风格 | GameBoy 四色掌机风格 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/style-gameboy/) | [prompt.md](effects/style-gameboy/prompt.md) | 🧪 参考实现 |
+| 美术风格 | 三渲二卡通 3D 风格 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/style-toon-3d/) | [prompt.md](effects/style-toon-3d/prompt.md) | 🧪 参考实现 |
+| 美术风格 | 剪纸风格 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/style-papercut/) | [prompt.md](effects/style-papercut/prompt.md) | 🧪 参考实现 |
 
 ## GitHub 项目
 

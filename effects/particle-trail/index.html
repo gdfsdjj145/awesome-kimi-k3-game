@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>粒子拖尾 · 参考实现</title>
+<style>*{margin:0}body{background:#05060c;overflow:hidden;font-family:system-ui,"PingFang SC",sans-serif;color:#fff;touch-action:none}canvas{display:block}
+#p{position:fixed;top:12px;left:12px;background:#000a;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.9}
+#p button{margin:2px;padding:4px 10px;border-radius:6px;border:1px solid #444;background:#1a1a26;color:#fff;cursor:pointer}#p button.on{border-color:#8af;background:#2a3a70}</style></head>
+<body><canvas id="c"></canvas><div id="p"><b>✨ 粒子拖尾</b> · 移动鼠标/手指，按住加速喷发<br><span id="m"></span><br>
+<label><input type="checkbox" id="auto" checked> 自动轨迹（无操作时）</label> · <label><input type="checkbox" id="glow" checked> 辉光</label></div>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d");let W,H;function rs(){W=c.width=innerWidth;H=c.height=innerHeight}rs();addEventListener("resize",rs);
+const MODES={comet:"☄️ 彗星",ribbon:"🎀 丝带",fire:"🔥 火焰",magic:"🪄 魔法星尘",lightning:"⚡ 电光",ink:"🖌️ 墨迹"};let mode="comet",hue=200;
+const mw=document.getElementById("m");for(const k in MODES){const b=document.createElement("button");b.textContent=MODES[k];b.onclick=()=>{mode=k;[...mw.children].forEach(e=>e.classList.remove("on"));b.classList.add("on");P=[];pts=[]};if(k==mode)b.classList.add("on");mw.appendChild(b)}
+let P=[],pts=[],mx=W/2,my=H/2,px=mx,py=my,down=false,idle=999,t=0;
+addEventListener("pointermove",e=>{mx=e.clientX;my=e.clientY;idle=0});addEventListener("pointerdown",e=>{down=true;mx=e.clientX;my=e.clientY;idle=0});addEventListener("pointerup",()=>down=false);
+addEventListener("keydown",e=>{const k=Object.keys(MODES)[e.key-1];if(k)[...mw.children][e.key-1].click()});
+const R=(a,b)=>a+Math.random()*(b-a);
+function emit(x0,y0,vx,vy,sp){const n=down?6:3;for(let i=0;i<n;i++){const f=i/n,ex=x0+(vx)*f,ey=y0+(vy)*f;
+ if(mode=="comet")P.push({x:ex,y:ey,vx:R(-.5,.5)-vx*.05,vy:R(-.5,.5)-vy*.05,l:1,d:.02,r:R(2,5),h:hue+R(-20,20)});
+ if(mode=="fire")P.push({x:ex+R(-4,4),y:ey,vx:R(-.6,.6),vy:R(-2.5,-.8),l:1,d:R(.02,.035),r:R(6,12),g:-.02});
+ if(mode=="magic"){P.push({x:ex,y:ey,vx:R(-1.5,1.5),vy:R(-1.5,1.5),l:1,d:R(.008,.015),r:R(1,2.5),h:R(260,330),tw:R(0,7),star:Math.random()<.15})}
+ if(mode=="ink")P.push({x:ex+R(-2,2),y:ey+R(-2,2),vx:R(-.2,.2),vy:R(-.2,.2),l:1,d:R(.004,.008),r:Math.max(2,14-sp*.6)+R(-2,2)})}
+ if(mode=="lightning"&&Math.random()<.5){P.push({bolt:1,x1:x0+R(-60,60),y1:y0+R(-60,60),x2:x0,y2:y0,l:1,d:.12})}}
+function step(){t++;idle++;if(document.getElementById("auto").checked&&idle>90){const k=t*.02;mx=W/2+Math.cos(k)*W*.3+Math.cos(k*3.1)*60;my=H/2+Math.sin(k*2)*H*.25}
+ const vx=mx-px,vy=my-py,sp=Math.hypot(vx,vy);hue=(hue+.5)%360;emit(px,py,vx,vy,sp);px=mx;py=my;
+ pts.push({x:mx,y:my,l:1});if(pts.length>40)pts.shift();pts.forEach(p=>p.l-=.025);
+ for(const p of P){if(p.bolt){p.l-=p.d;continue}p.x+=p.vx;p.y+=p.vy;p.vy+=p.g||0;p.vx*=.98;p.vy*=.98;p.l-=p.d}P=P.filter(p=>p.l>0);if(P.length>4000)P.splice(0,P.length-4000)}
+function bolt(x1,y1,x2,y2,d){if(d<=0){x.lineTo(x2,y2);return}const mx2=(x1+x2)/2+R(-1,1)*Math.hypot(x2-x1,y2-y1)*.25,my2=(y1+y2)/2+R(-1,1)*Math.hypot(x2-x1,y2-y1)*.25;bolt(x1,y1,mx2,my2,d-1);bolt(mx2,my2,x2,y2,d-1)}
+function draw(){const glow=document.getElementById("glow").checked;
+ if(mode=="ink"){x.fillStyle="rgba(240,232,215,0.04)";x.fillRect(0,0,W,H);if(t<3){x.fillStyle="#f0e8d7";x.fillRect(0,0,W,H)}}
+ else{x.globalCompositeOperation="source-over";x.fillStyle=mode=="ribbon"?"rgba(5,6,12,0.25)":"rgba(5,6,12,0.35)";x.fillRect(0,0,W,H)}
+ x.globalCompositeOperation=mode=="ink"?"source-over":"lighter";x.shadowBlur=glow&&mode!="ink"?12:0;
+ if(mode=="ribbon"&&pts.length>2){for(let k=0;k<3;k++){x.beginPath();for(let i=1;i<pts.length;i++){const p=pts[i],q=pts[i-1],off=Math.sin(i*.4+t*.1+k*2)*(i/pts.length)*14;const nx=-(p.y-q.y),ny=p.x-q.x,L=Math.hypot(nx,ny)||1;
+   const X=p.x+nx/L*off,Y=p.y+ny/L*off;i==1?x.moveTo(X,Y):x.lineTo(X,Y)}const col=`hsla(${(hue+k*60)%360},90%,65%,0.9)`;x.strokeStyle=col;x.shadowColor=col;x.lineWidth=3;x.lineCap="round";x.stroke()}}
+ for(const p of P){if(p.bolt){x.strokeStyle=`rgba(170,210,255,${p.l})`;x.shadowColor="#8cf";x.lineWidth=2*p.l;x.beginPath();x.moveTo(p.x1,p.y1);bolt(p.x1,p.y1,p.x2,p.y2,4);x.stroke();continue}
+  let col;if(mode=="comet")col=`hsla(${p.h},100%,${50+p.l*30}%,${p.l})`;else if(mode=="fire"){const L=p.l;col=L>.7?`rgba(255,250,200,${L})`:L>.4?`rgba(255,${120+L*150|0},30,${L})`:`rgba(180,40,20,${L*.8})`}
+  else if(mode=="magic")col=`hsla(${p.h},100%,75%,${p.l*(.5+.5*Math.sin(t*.2+p.tw))})`;else col=`rgba(20,18,25,${p.l*.25})`;
+  x.fillStyle=col;x.shadowColor=col;x.beginPath();const r=mode=="fire"?p.r*p.l:mode=="ink"?p.r:p.r*(.5+p.l*.5);
+  if(p.star){x.save();x.translate(p.x,p.y);x.rotate(t*.05);for(let i=0;i<4;i++){x.rotate(Math.PI/2);x.moveTo(0,0);x.lineTo(1.5,-1.5);x.lineTo(0,-8);x.lineTo(-1.5,-1.5)}x.fill();x.restore()}else{x.arc(p.x,p.y,Math.max(.3,r),0,7);x.fill()}}
+ if(mode=="comet"){x.fillStyle="#fff";x.shadowColor=`hsl(${hue},100%,70%)`;x.shadowBlur=30;x.beginPath();x.arc(px,py,6,0,7);x.fill()}x.shadowBlur=0;x.globalCompositeOperation="source-over"}
+(function loop(){step();draw();requestAnimationFrame(loop)})();
+</script></body></html>
