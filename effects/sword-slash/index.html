@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>剑气刀光轨迹 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}canvas{display:block}
+#fps{position:fixed;right:8px;bottom:8px;font:11px monospace;color:#8f8;background:#0008;padding:2px 6px;border-radius:4px;z-index:99;pointer-events:none}
+.hud{position:fixed;top:10px;left:10px;right:10px;z-index:10;font-size:13px;line-height:1.6;pointer-events:none;text-shadow:0 1px 3px #000}
+.hud b{font-size:15px}.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.hud button,.btn{pointer-events:auto;background:#ffffff1c;color:#fff;border:1px solid #ffffff45;border-radius:999px;padding:6px 12px;font-size:13px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;font-family:inherit}
+.hud button.on{background:#ffffffd8;color:#000}.tip{opacity:.75;font-size:12px}
+</style>
+</head><body><canvas id="c"></canvas>
+<div class="hud"><b>⚔️ 剑气刀光</b><div class="tip">按住拖动 / 手指划动挥刀，快速挥动会射出月牙剑气，斩断竹子与木桩</div>
+<div class="btns"><button data-k="0" class="on">青锋</button><button data-k="1">烈焰</button><button data-k="2">紫电</button><button data-k="3">月华</button><button id="auto">自动演武</button></div></div>
+<script>
+const P=new URLSearchParams(location.search),DEMO=P.has("demo"),FT=P.has("t")?+P.get("t"):null;
+const Q=(()=>{const coarse=matchMedia("(pointer:coarse)").matches,small=Math.min(innerWidth,innerHeight)<700,weak=(navigator.hardwareConcurrency||8)<=4,low=coarse||small||weak;return{low,pr:Math.min(devicePixelRatio||1,2),n:low?.5:1}})();
+const fpsEl=document.createElement("div");fpsEl.id="fps";document.body.appendChild(fpsEl);
+window.__fps=0;let __fc=0,__ft=performance.now(),__lc=0;
+function perfTick(onLow){__fc++;const n=performance.now();if(n-__ft>=1000){window.__fps=Math.round(__fc*1000/(n-__ft));__fc=0;__ft=n;fpsEl.textContent=window.__fps+" FPS"+(Q.low?" · 省电档":"");if(window.__fps<40&&onLow&&++__lc>=2){__lc=0;onLow()}}}
+const c=document.getElementById("c"),x=c.getContext("2d"),gc=document.createElement("canvas"),gx=gc.getContext("2d");let W,H,DPR;
+function rs(){DPR=Math.min(Q.pr,Q.low?1.5:2);W=innerWidth;H=innerHeight;c.width=W*DPR;c.height=H*DPR;c.style.width=W+"px";c.style.height=H+"px";gc.width=Math.ceil(W/4);gc.height=Math.ceil(H/4);build()}
+const KS=[["#5ff2ff","#e9feff","#0aa0ff"],["#ffb347","#fff3d6","#ff3d00"],["#c77dff","#f7e9ff","#7b2cff"],["#dfe8ff","#ffffff","#8aa8ff"]];let K=KS[0];
+const R=(a,b)=>a+Math.random()*(b-a);
+let trail=[],waves=[],pieces=[],sparks=[],targets=[],t=0,shake=0,hitstop=0,auto=DEMO,down=false,leaves=[];
+function build(){targets=[];const n=Math.max(4,Math.floor(W/110));for(let i=0;i<n;i++){const X=W*(i+.5)/n+R(-15,15),h=R(H*.35,H*.55);targets.push({type:i%3==2?"post":"bamboo",x:X,top:H*.86-h,bot:H*.86,w:i%3==2?34:18,cut:0})}}
+rs();addEventListener("resize",rs);
+for(let i=0;i<40;i++)leaves.push({x:R(0,innerWidth),y:R(0,innerHeight),v:R(10,30),a:R(0,6),s:R(3,6)});
+function addPt(px,py){const now=t;trail.push({x:px,y:py,t:now});if(trail.length>2){const a=trail[trail.length-1],b=trail[Math.max(0,trail.length-4)];const sp=Math.hypot(a.x-b.x,a.y-b.y)/Math.max(.001,a.t-b.t);
+ if(sp>2200&&(!trail.lastWave||now-trail.lastWave>.18)){trail.lastWave=now;const ang=Math.atan2(a.y-b.y,a.x-b.x);waves.push({x:a.x,y:a.y,ang,v:Math.min(1600,sp*.6),life:.8,size:60})}
+ cutCheck(trail[trail.length-2],a)}}
+function segHit(p,q,T){if(T.cut)return null;const y0=T.top,y1=T.bot;// 线段与目标矩形中心线 x=T.x 求交
+ if((p.x-T.x)*(q.x-T.x)>0)return null;const k=(T.x-p.x)/((q.x-p.x)||1e-6);const y=p.y+(q.y-p.y)*k;if(y<y0+8||y>y1-8)return null;return{y,slope:(q.y-p.y)/((q.x-p.x)||1e-6)}}
+function cutCheck(p,q){for(const T of targets){const h=segHit(p,q,T);if(h)slice(T,h.y,Math.max(-1.2,Math.min(1.2,h.slope)),q.x>p.x?1:-1)}}
+function slice(T,y,sl,dir){T.cut=1;shake=10;hitstop=.06;const cl=T.type=="bamboo"?["#7cc96b","#4f9a4a"]:["#b9874f","#8a5e33"];
+ pieces.push({x:T.x,y:T.top,h:y-T.top,w:T.w,vx:dir*R(120,260),vy:-R(80,220),rot:0,vr:dir*R(2,6),sl,col:cl,type:T.type,l:3,ground:T.bot});
+ T.top=y;T.cutSl=sl;for(let i=0;i<Math.round(36*Q.n);i++){const a=R(0,6.28),s=R(100,600);sparks.push({x:T.x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-100,l:R(.3,.7)})}
+ setTimeout(()=>{T.top=T.bot-R(H*.35,H*.55);T.cut=0},2600)}
+c.addEventListener("pointerdown",e=>{down=true;trail=[];addPt(e.clientX,e.clientY)});addEventListener("pointermove",e=>{if(down)addPt(e.clientX,e.clientY)});addEventListener("pointerup",()=>down=false);
+document.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{K=KS[+b.dataset.k];document.querySelectorAll("[data-k]").forEach(z=>z.classList.toggle("on",z==b))});
+const ab=document.getElementById("auto");ab.classList.toggle("on",auto);ab.onclick=()=>{auto=!auto;ab.classList.toggle("on",auto)};
+// 自动演武：程序化弧线挥砍
+let autoSw=null,nextAuto=0;
+function autoStep(dt){if(!autoSw&&t>nextAuto){const cx=R(W*.2,W*.8),cy=R(H*.35,H*.65),r=R(140,Math.min(W,H)*.45),a0=R(0,6.28),dir=Math.random()<.5?1:-1;autoSw={cx,cy,r,a0,dir,p:0};trail=[]}
+ if(autoSw){autoSw.p+=dt*3.2;const a=autoSw.a0+autoSw.dir*autoSw.p*2.6;t+=0;addPt(autoSw.cx+Math.cos(a)*autoSw.r,autoSw.cy+Math.sin(a)*autoSw.r*.6);if(autoSw.p>1){autoSw=null;nextAuto=t+.08}}}
+let last=performance.now();
+function ribbon(g,pts,sc,ox,oy,glow){if(pts.length<3)return;const n=pts.length;const L=[],Rr=[];
+ for(let i=0;i<n;i++){const p=pts[i],q=pts[Math.min(n-1,i+1)],o=pts[Math.max(0,i-1)];const dx=q.x-o.x,dy=q.y-o.y,l=Math.hypot(dx,dy)||1;const age=(t-p.t)/.32;const w=(1-age)*(i/n)*(glow?34:18);L.push([p.x-dy/l*w,p.y+dx/l*w]);Rr.push([p.x+dy/l*w*.25,p.y-dx/l*w*.25])}
+ g.beginPath();g.moveTo((L[0][0]+ox)*sc,(L[0][1]+oy)*sc);for(const p of L)g.lineTo((p[0]+ox)*sc,(p[1]+oy)*sc);for(let i=n-1;i>=0;i--)g.lineTo((Rr[i][0]+ox)*sc,(Rr[i][1]+oy)*sc);g.closePath();
+ const a=pts[0],b=pts[n-1];const gr=g.createLinearGradient((a.x+ox)*sc,(a.y+oy)*sc,(b.x+ox)*sc,(b.y+oy)*sc);gr.addColorStop(0,"transparent");gr.addColorStop(.6,glow?K[2]:K[0]);gr.addColorStop(1,glow?K[0]:K[1]);g.fillStyle=gr;g.fill()}
+function crescent(g,w,sc,ox,oy,glow){g.save();g.translate((w.x+ox)*sc,(w.y+oy)*sc);g.rotate(w.ang);g.scale(sc,sc);const s=w.size*(1+(.8-w.life)*.8)*(glow?1.3:1);g.globalAlpha=Math.min(1,w.life*1.6);
+ g.beginPath();g.arc(0,0,s,-1.2,1.2);g.arc(-s*.35,0,s*1.05,1.05,-1.05,true);g.closePath();const gr=g.createLinearGradient(-s,0,s,0);gr.addColorStop(0,"transparent");gr.addColorStop(.7,glow?K[2]:K[0]);gr.addColorStop(1,K[1]);g.fillStyle=gr;g.fill();g.restore()}
+function fx(g,sc,ox,oy,glow){g.globalCompositeOperation="lighter";ribbon(g,trail,sc,ox,oy,glow);if(autoSw==null&&!down);for(const w of waves)crescent(g,w,sc,ox,oy,glow);
+ for(const p of sparks){g.globalAlpha=Math.min(1,p.l*2);g.strokeStyle=glow?K[2]:K[1];g.lineWidth=(glow?4:1.6)*sc;g.beginPath();g.moveTo((p.x+ox)*sc,(p.y+oy)*sc);g.lineTo((p.x-p.vx*.03+ox)*sc,(p.y-p.vy*.03+oy)*sc);g.stroke()}
+ g.globalAlpha=1;g.globalCompositeOperation="source-over"}
+function loop(now){requestAnimationFrame(loop);perfTick(()=>{if(Q.n>.3)Q.n*=.75});let dt=Math.min(.05,(now-last)/1000);last=now;if(hitstop>0){hitstop-=dt;dt*=.1}t+=dt;
+ if(auto&&!down)autoStep(dt);trail=trail.filter(p=>t-p.t<.32);
+ for(const w of waves){w.x+=Math.cos(w.ang)*w.v*dt;w.y+=Math.sin(w.ang)*w.v*dt;w.life-=dt;const p={x:w.x-Math.cos(w.ang)*40,y:w.y-Math.sin(w.ang)*40};cutCheck(p,{x:w.x+Math.cos(w.ang)*40,y:w.y+Math.sin(w.ang)*40});
+  const nx=-Math.sin(w.ang),ny=Math.cos(w.ang);cutCheck({x:w.x-nx*w.size,y:w.y-ny*w.size},{x:w.x+nx*w.size,y:w.y+ny*w.size})}waves=waves.filter(w=>w.life>0);
+ for(const p of pieces){p.vy+=900*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.rot+=p.vr*dt;if(p.y+p.h>p.ground){p.y=p.ground-p.h;p.vy*=-.3;p.vx*=.7;p.vr*=.6}p.l-=dt}pieces=pieces.filter(p=>p.l>0);
+ for(const p of sparks){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=600*dt;p.vx*=.95;p.l-=dt}sparks=sparks.filter(p=>p.l>0);
+ for(const l of leaves){l.y+=l.v*dt;l.x+=Math.sin(t+l.a)*20*dt;l.a+=dt;if(l.y>H){l.y=-10;l.x=R(0,W)}}
+ shake*=.85;const ox=R(-shake,shake),oy=R(-shake,shake);
+ x.setTransform(DPR,0,0,DPR,0,0);const bg=x.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#0b1020");bg.addColorStop(.7,"#1b2338");bg.addColorStop(1,"#0d0f16");x.fillStyle=bg;x.fillRect(0,0,W,H);
+ x.save();x.translate(ox,oy);
+ x.fillStyle="#fff6d8";x.globalAlpha=.9;x.beginPath();x.arc(W*.78,H*.2,Math.min(W,H)*.09,0,7);x.fill();x.globalAlpha=.08;x.beginPath();x.arc(W*.78,H*.2,Math.min(W,H)*.2,0,7);x.fill();x.globalAlpha=1;
+ x.fillStyle="#141a28";x.beginPath();x.moveTo(0,H*.7);for(let i=0;i<=10;i++)x.lineTo(W*i/10,H*(.58+Math.sin(i*1.7)*.05));x.lineTo(W,H);x.lineTo(0,H);x.fill();
+ x.fillStyle="#0a0c12";x.fillRect(0,H*.86,W,H*.14);
+ for(const T of targets){const isB=T.type=="bamboo";x.fillStyle=isB?"#5aa850":"#9a6a3a";x.beginPath();const sl=T.cut?T.cutSl||0:0;x.moveTo(T.x-T.w/2,T.bot);x.lineTo(T.x-T.w/2,T.top-sl*T.w/2);x.lineTo(T.x+T.w/2,T.top+sl*T.w/2);x.lineTo(T.x+T.w/2,T.bot);x.fill();
+  if(isB){x.fillStyle="#3d7a37";for(let y=T.bot-40;y>T.top+6;y-=46)x.fillRect(T.x-T.w/2,y,T.w,4)}else{x.strokeStyle="#5a3a1a";x.lineWidth=2;x.beginPath();x.moveTo(T.x-T.w/2,T.top+30);x.lineTo(T.x+T.w/2,T.top+30);x.stroke()}
+  if(T.cut){x.fillStyle="#f0f8e0";x.beginPath();x.ellipse(T.x,T.top,T.w/2,3,Math.atan(sl),0,7);x.fill()}}
+ for(const p of pieces){x.save();x.translate(p.x,p.y+p.h);x.rotate(p.rot);x.fillStyle=p.col[0];x.globalAlpha=Math.min(1,p.l);x.beginPath();x.moveTo(-p.w/2,-p.h);x.lineTo(p.w/2,-p.h);x.lineTo(p.w/2,p.sl*p.w/2);x.lineTo(-p.w/2,-p.sl*p.w/2);x.fill();x.restore()}x.globalAlpha=1;
+ x.fillStyle="#ffffff22";for(const l of leaves){x.beginPath();x.ellipse(l.x,l.y,l.s,l.s*.4,l.a,0,7);x.fill()}
+ x.restore();
+ gx.clearRect(0,0,gc.width,gc.height);fx(gx,.25,ox,oy,true);x.save();x.globalCompositeOperation="lighter";x.drawImage(gc,0,0,W,H);x.drawImage(gc,0,0,W,H);x.restore();fx(x,1,ox,oy,false)}
+requestAnimationFrame(loop);
+</script></body></html>

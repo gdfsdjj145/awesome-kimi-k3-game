@@ -52,6 +52,18 @@
 
 | 类别 | 效果 | 可玩链接 | 提示词 | 标记 |
 | --- | --- | --- | --- | --- |
+| 炫酷特效 | 大招全屏开大 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/ultimate-burst/) | [prompt.md](effects/ultimate-burst/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | 核爆冲击波 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/nuke-shockwave/) | [prompt.md](effects/nuke-shockwave/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | 黑洞 / 传送门 / 虫洞 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/black-hole-portal/) | [prompt.md](effects/black-hole-portal/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | SSR 传说级开包动画 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/ssr-pack-opening/) | [prompt.md](effects/ssr-pack-opening/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | 体积光与辉光 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/volumetric-light/) | [prompt.md](effects/volumetric-light/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | 能量护盾受击涟漪 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/energy-shield/) | [prompt.md](effects/energy-shield/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | 溶解消散 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/dissolve/) | [prompt.md](effects/dissolve/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | 闪电链 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/chain-lightning/) | [prompt.md](effects/chain-lightning/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | 剑气刀光轨迹 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/sword-slash/) | [prompt.md](effects/sword-slash/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | 东方风弹幕射击 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/danmaku/) | [prompt.md](effects/danmaku/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | 火焰与烟雾流体 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/fire-smoke/) | [prompt.md](effects/fire-smoke/prompt.md) | 🧪 参考实现 |
+| 炫酷特效 | 全息闪卡 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/holo-card/) | [prompt.md](effects/holo-card/prompt.md) | 🧪 参考实现 |
 | 玩法 | 平台跳跃 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/platformer/) | [prompt.md](effects/platformer/prompt.md) | 🧪 参考实现 |
 | 玩法 | 弹球 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/pinball/) | [prompt.md](effects/pinball/prompt.md) | 🧪 参考实现 |
 | 玩法 | 塔防 | [在线试玩](https://gdfsdjj145.github.io/awesome-kimi-k3-game/effects/tower-defense/) | [prompt.md](effects/tower-defense/prompt.md) | 🧪 参考实现 |

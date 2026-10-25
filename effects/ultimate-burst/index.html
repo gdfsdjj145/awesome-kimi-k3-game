@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>大招全屏开大 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}canvas{display:block}
+#fps{position:fixed;right:8px;bottom:8px;font:11px monospace;color:#8f8;background:#0008;padding:2px 6px;border-radius:4px;z-index:99;pointer-events:none}
+.hud{position:fixed;top:10px;left:10px;right:10px;z-index:10;font-size:13px;line-height:1.6;pointer-events:none;text-shadow:0 1px 3px #000}
+.hud b{font-size:15px}.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.hud button,.btn{pointer-events:auto;background:#ffffff1c;color:#fff;border:1px solid #ffffff45;border-radius:999px;padding:6px 12px;font-size:13px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;font-family:inherit}
+.hud button.on{background:#ffffffd8;color:#000}.tip{opacity:.75;font-size:12px}
+</style>
+<style>
+#bars:before,#bars:after{content:"";position:fixed;left:0;right:0;height:0;background:#000;z-index:5;transition:height .35s cubic-bezier(.2,.8,.2,1)}
+#bars:before{top:0}#bars:after{bottom:0}#bars.on:before,#bars.on:after{height:11vh}
+#title{position:fixed;left:0;right:0;top:50%;transform:translateY(-50%) scale(2.4);text-align:center;z-index:6;opacity:0;pointer-events:none;transition:all .25s cubic-bezier(.2,1.6,.4,1)}
+#title.on{opacity:1;transform:translateY(-50%) scale(1)}
+#title h1{font-size:min(16vw,92px);letter-spacing:.15em;font-weight:900;background:linear-gradient(#fff,#ffd36b 55%,#ff7a2a);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 18px #ff9a3c) drop-shadow(0 0 4px #fff)}
+#title p{font-size:min(4vw,18px);letter-spacing:.6em;color:#ffe6b0;margin-top:4px}
+#speed{position:fixed;inset:0;z-index:4;pointer-events:none}
+#cast{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:12;font-size:17px;padding:12px 30px;background:linear-gradient(#ffb347,#ff5e1a);border:none;color:#fff;font-weight:800;box-shadow:0 0 24px #ff7a2a}
+</style></head><body>
+<div id="bars"></div><canvas id="speed"></canvas>
+<div id="title"><h1>终焉·星陨</h1><p>ULTIMATE</p></div>
+<div class="hud"><b>💥 大招全屏开大</b><div class="tip">点击屏幕 / 空格 / 按钮释放：蓄力 → 冲击光波 → 震屏</div>
+<div class="btns"><button id="auto">自动循环</button><button id="bl" class="on">辉光</button></div></div>
+<button id="cast" class="btn">释放大招</button>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+const P=new URLSearchParams(location.search),DEMO=P.has("demo"),FT=P.has("t")?+P.get("t"):null;
+const Q=(()=>{const coarse=matchMedia("(pointer:coarse)").matches,small=Math.min(innerWidth,innerHeight)<700,weak=(navigator.hardwareConcurrency||8)<=4,low=coarse||small||weak;return{low,pr:Math.min(devicePixelRatio||1,2),n:low?.5:1}})();
+const fpsEl=document.createElement("div");fpsEl.id="fps";document.body.appendChild(fpsEl);
+window.__fps=0;let __fc=0,__ft=performance.now(),__lc=0;
+function perfTick(onLow){__fc++;const n=performance.now();if(n-__ft>=1000){window.__fps=Math.round(__fc*1000/(n-__ft));__fc=0;__ft=n;fpsEl.textContent=window.__fps+" FPS"+(Q.low?" · 省电档":"");if(window.__fps<40&&onLow&&++__lc>=2){__lc=0;onLow()}}}
+import * as THREE from "three";
+import {EffectComposer} from "three/addons/postprocessing/EffectComposer.js";
+import {RenderPass} from "three/addons/postprocessing/RenderPass.js";
+import {UnrealBloomPass} from "three/addons/postprocessing/UnrealBloomPass.js";
+import {ShaderPass} from "three/addons/postprocessing/ShaderPass.js";
+import {OutputPass} from "three/addons/postprocessing/OutputPass.js";
+const R=new THREE.WebGLRenderer({antialias:!Q.low,powerPreference:"high-performance"});
+R.setPixelRatio(Q.pr);R.setSize(innerWidth,innerHeight);document.body.prepend(R.domElement);
+const composer=new EffectComposer(R);composer.setPixelRatio(Q.pr);
+function lowerPR(){if(Q.pr<=.6)return;Q.pr=Math.max(.6,Q.pr*.8);R.setPixelRatio(Q.pr);composer.setPixelRatio(Q.pr);composer.setSize(innerWidth,innerHeight)}
+function onResize(cam){addEventListener("resize",()=>{if(cam.isPerspectiveCamera){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}R.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight)})}
+R.toneMapping=THREE.ACESFilmicToneMapping;R.toneMappingExposure=1.1;const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x05030a,.035);scene.background=new THREE.Color(0x05030a);
+const cam=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,200);onResize(cam);
+const BASE=new THREE.Vector3(0,5,innerWidth<innerHeight?19:14);
+// 地面：发光网格 + 冲击波圆环
+const floorMat=new THREE.ShaderMaterial({uniforms:{uR:{value:-1},uT:{value:0}},transparent:true,
+ vertexShader:"varying vec2 vP;void main(){vP=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
+ fragmentShader:`varying vec2 vP;uniform float uR,uT;void main(){vec2 g=abs(fract(vP*.5)-.5);float l=smoothstep(.47,.5,max(g.x,g.y));float r=length(vP);
+ float ring=uR>0.?exp(-pow((r-uR)*1.6,2.))*(1.-clamp(uR/40.,0.,1.)):0.;float glow=exp(-r*.25);
+ vec3 c=vec3(.25,.12,.5)*l*(.35+glow)+vec3(1.,.55,.2)*ring*1.2+vec3(1.,.5,.2)*glow*.25*(.6+.4*sin(uT*3.));gl_FragColor=vec4(c,1.);}`});
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(120,120),floorMat);floor.rotation.x=-Math.PI/2;scene.add(floor);
+// 核心水晶
+const core=new THREE.Group();core.position.y=1.6;scene.add(core);
+const crys=new THREE.Mesh(new THREE.OctahedronGeometry(.9,0),new THREE.MeshStandardMaterial({color:0xffb060,emissive:0xff7a20,emissiveIntensity:1.6,flatShading:true,metalness:.3,roughness:.3}));crys.scale.y=1.6;core.add(crys);
+const rings=[];for(let i=0;i<3;i++){const r=new THREE.Mesh(new THREE.TorusGeometry(1.6+i*.5,.03,6,90),new THREE.MeshBasicMaterial({color:[0xffc070,0xff6a30,0xa070ff][i]}));r.rotation.set(Math.random()*3,Math.random()*3,0);core.add(r);rings.push(r)}
+scene.add(new THREE.AmbientLight(0x6050a0,.6));const pl=new THREE.PointLight(0xff8a3a,40,30,1.6);pl.position.y=1.8;scene.add(pl);
+// 粒子：顶点着色器里按时间解析计算位置（可冻结任意时刻）
+const N=Math.round(5000*Q.n),aS=new Float32Array(N*3),aD=new Float32Array(N*3),aV=new Float32Array(N),aE=new Float32Array(N);
+for(let i=0;i<N;i++){const u=Math.random()*2-1,a=Math.random()*6.283,s=Math.sqrt(1-u*u),r=7+Math.random()*9;aS.set([Math.cos(a)*s*r,Math.abs(u)*r*.6+.5,Math.sin(a)*s*r],i*3);
+ const u2=Math.random()*.9,a2=Math.random()*6.283,s2=Math.sqrt(1-u2*u2);aD.set([Math.cos(a2)*s2,u2,Math.sin(a2)*s2],i*3);aV[i]=8+Math.random()*26;aE[i]=Math.random()}
+const pg=new THREE.BufferGeometry();pg.setAttribute("position",new THREE.BufferAttribute(aS,3));pg.setAttribute("aD",new THREE.BufferAttribute(aD,3));pg.setAttribute("aV",new THREE.BufferAttribute(aV,1));pg.setAttribute("aE",new THREE.BufferAttribute(aE,1));
+const pMat=new THREE.ShaderMaterial({uniforms:{uT:{value:-1},uPx:{value:Q.pr},uIdle:{value:0}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+ vertexShader:`attribute vec3 aD;attribute float aV,aE;uniform float uT,uPx,uIdle;varying float vA;varying vec3 vC;
+ void main(){vec3 C=vec3(0.,1.6,0.),p=position;float a;
+  if(uT<0.){a=uIdle*(.1+aE*.2);p.xz=mat2(cos(a),-sin(a),sin(a),cos(a))*p.xz;vA=.18;}
+  else if(uT<.9){float k=uT/.9,e=k*k*k;a=e*(4.+aE*6.)+uIdle*.2;p.xz=mat2(cos(a),-sin(a),sin(a),cos(a))*p.xz;p=mix(p,C,e);vA=.2+.4*k;}
+  else{float t=uT-.9;float d=aV*(1.-exp(-2.2*t))/2.2;p=C+aD*d;p.y=max(.05,p.y-1.2*t*t*aE);vA=.55*exp(-t*(.5+aE));}
+  vC=mix(vec3(1.,.55,.15),mix(vec3(1.,.9,.6),vec3(.6,.4,1.),step(.75,aE)),aE);
+  vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=uPx*(10.+aE*16.)/-mv.z;gl_Position=projectionMatrix*mv;}`,
+ fragmentShader:"varying float vA;varying vec3 vC;void main(){float d=length(gl_PointCoord-.5);gl_FragColor=vec4(vC,vA*smoothstep(.5,0.,d));}"});
+scene.add(new THREE.Points(pg,pMat));
+// 冲击环与光柱
+const shock=[0,.12,.26].map((d,i)=>{const m=new THREE.Mesh(new THREE.RingGeometry(.92,1,128),new THREE.MeshBasicMaterial({color:[0xfff0c0,0xff9a40,0xb080ff][i],transparent:true,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.y=.3+i*.4;m.userData.d=d;scene.add(m);return m});
+const pillar=new THREE.Mesh(new THREE.CylinderGeometry(1,1,60,48,1,true),new THREE.ShaderMaterial({uniforms:{uA:{value:0},uT:{value:0}},transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,
+ vertexShader:"varying vec2 vU;void main(){vU=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
+ fragmentShader:"varying vec2 vU;uniform float uA,uT;void main(){float s=.6+.4*sin(vU.x*60.+uT*30.)*sin(vU.y*20.-uT*40.);gl_FragColor=vec4(vec3(1.,.8,.5)*s,uA*(1.-vU.y)*.45);}"}));
+pillar.position.y=30;scene.add(pillar);
+// 后期：渲染 → 辉光 → 光波扭曲 + 色差 + 闪白 → 输出
+composer.addPass(new RenderPass(scene,cam));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth/2,innerHeight/2),1.,.5,.35);composer.addPass(bloom);
+const wave=new ShaderPass({uniforms:{tDiffuse:{value:null},c:{value:new THREE.Vector2(.5,.5)},r:{value:-1},amp:{value:0},flash:{value:0},asp:{value:1}},
+ vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}",
+ fragmentShader:`uniform sampler2D tDiffuse;uniform vec2 c;uniform float r,amp,flash,asp;varying vec2 vUv;
+ void main(){vec2 d=vUv-c;d.x*=asp;float l=length(d);float w=r<0.?0.:exp(-pow((l-r)*9.,2.))*amp;vec2 o=d/(l+1e-4)*w*.06;o.x/=asp;
+ float ca=.004*amp+w*.02;vec3 col=vec3(texture2D(tDiffuse,vUv-o*1.3+vec2(ca,0)).r,texture2D(tDiffuse,vUv-o).g,texture2D(tDiffuse,vUv-o*.7-vec2(ca,0)).b);
+ col+=vec3(1.,.8,.55)*w*.6;col*=1.-.35*dot(d,d)*2.;col=mix(col,vec3(1.,.97,.9),clamp(flash,0.,1.));gl_FragColor=vec4(col,1.);}`});
+composer.addPass(wave);composer.addPass(new OutputPass());
+// 速度线（2D 叠加）
+const sc=document.getElementById("speed"),sx=sc.getContext("2d");function rsz(){sc.width=innerWidth;sc.height=innerHeight}rsz();addEventListener("resize",rsz);
+let tt=-1,auto=DEMO,useBloom=true;const title=document.getElementById("title"),bars=document.getElementById("bars");
+function cast(){if(tt<0||tt>3.2)tt=0}
+document.getElementById("cast").onclick=e=>{e.stopPropagation();cast()};addEventListener("keydown",e=>{if(e.code=="Space")cast()});
+R.domElement.addEventListener("pointerdown",cast);
+const ab=document.getElementById("auto");ab.classList.toggle("on",auto);ab.onclick=()=>{auto=!auto;ab.classList.toggle("on",auto)};
+const bb=document.getElementById("bl");bb.onclick=()=>{useBloom=!useBloom;bloom.enabled=useBloom;bb.classList.toggle("on",useBloom)};
+if(FT!==null)tt=FT;
+const clk=new THREE.Clock();let idle=0,lastAuto=0;const v=new THREE.Vector3();
+function frame(){requestAnimationFrame(frame);perfTick(lowerPR);const dt=Math.min(.05,clk.getDelta());idle+=dt;
+ if(FT===null){if(tt>=0){tt+=dt;if(tt>4.2)tt=-1}if(auto&&tt<0&&idle-lastAuto>1.2){lastAuto=idle;tt=0}}
+ const T=tt;pMat.uniforms.uT.value=T;pMat.uniforms.uIdle.value=idle;floorMat.uniforms.uT.value=idle;
+ const charge=T>=0&&T<.9?T/.9:0,after=T>=.9?T-.9:-1;
+ crys.rotation.y+=dt*(1+charge*12);core.position.y=1.6+Math.sin(idle*2)*.15;rings.forEach((r,i)=>{r.rotation.x+=dt*(.6+i*.3)*(1+charge*8);r.rotation.y+=dt*.4});
+ crys.material.emissiveIntensity=1.2+charge*3+(after>=0?Math.max(0,2-after*2):0);pl.intensity=40+charge*200+(after>=0?Math.max(0,120*Math.exp(-after*2.5)):0);
+ shock.forEach(m=>{const a=after-m.userData.d;if(a>0){const s=1+a*22;m.scale.setScalar(s);m.material.opacity=Math.max(0,1-a/1.6)*.8;m.visible=true}else m.visible=false});
+ floorMat.uniforms.uR.value=after>=0?after*22:-1;
+ pillar.material.uniforms.uA.value=after>=0?Math.max(0,1-after/1.4):charge*.15;pillar.material.uniforms.uT.value=idle;pillar.scale.set(.3+(after>=0?Math.min(1,after*6)*2.2:charge*.4),1,.3+(after>=0?Math.min(1,after*6)*2.2:charge*.4));
+ bloom.strength=.9+charge*.6+(after>=0?.8*Math.exp(-after*2):0);
+ // 镜头：蓄力推近，爆发震屏
+ const shake=after>=0?Math.max(0,1-after/1.3)**2*1.2:charge*.08;cam.position.copy(BASE).multiplyScalar(1-charge*.35+(after>=0?Math.min(.35,after*.8)-.35+.35*Math.min(1,after*.8)*0:0));
+ if(after>=0)cam.position.copy(BASE).multiplyScalar(.65+.35*Math.min(1,after/1.5));
+ cam.position.x+=(Math.random()-.5)*shake;cam.position.y+=(Math.random()-.5)*shake;cam.lookAt(0,1.5+(Math.random()-.5)*shake*.3,0);
+ v.set(0,1.6,0).project(cam);wave.uniforms.c.value.set(v.x*.5+.5,v.y*.5+.5);wave.uniforms.asp.value=innerWidth/innerHeight;
+ wave.uniforms.r.value=after>=0?after*.9:-1;wave.uniforms.amp.value=after>=0?Math.exp(-after*1.2)*1.4:charge*.3;wave.uniforms.flash.value=after>=0?Math.exp(-after*7)*1.1:0;
+ title.classList.toggle("on",T>.15&&T<2.6);bars.classList.toggle("on",T>=0&&T<3);
+ // 速度线
+ sx.clearRect(0,0,sc.width,sc.height);if(charge>0||(after>=0&&after<.8)){const k=charge>0?charge:1-after/.8,cx=sc.width/2,cy=sc.height/2,R2=Math.hypot(cx,cy);sx.strokeStyle=`rgba(255,235,200,${.35*k})`;
+  for(let i=0;i<70;i++){const a=Math.random()*6.283,r1=R2*(.45+Math.random()*.3);sx.lineWidth=1+Math.random()*3;sx.beginPath();sx.moveTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);sx.lineTo(cx+Math.cos(a)*R2,cy+Math.sin(a)*R2);sx.stroke()}}
+ composer.render()}
+frame();
+</script></body></html>

@@ -42,8 +42,20 @@ footer{max-width:1100px;margin:28px auto 0;font-size:12px;opacity:.5;line-height
 <nav id="nav"></nav><main id="main"></main>
 <footer>点「复制提示词」会读取对应目录下的 prompt.md 并复制到剪贴板。</footer>
 <script>
-const CATS=["玩法","卡牌与抽卡","战斗特效","粒子与光效","3D 场景","Blender","UI","美术风格"];
+const CATS=["炫酷特效","玩法","卡牌与抽卡","战斗特效","粒子与光效","3D 场景","Blender","UI","美术风格"];
 const EFFECTS=[
+ {slug:"ultimate-burst",cat:"炫酷特效",name:"大招全屏开大",desc:"蓄力吸聚粒子 → 冲击光波屏幕扭曲 + 色差 + 闪白 + 震屏 + 光柱，电影黑边与大字标题。",engine:"Three.js + UnrealBloom + 自定义后期"},
+ {slug:"nuke-shockwave",cat:"炫酷特效",name:"核爆冲击波",desc:"闪光 → 火球 → 地面冲击波掀翻 InstancedMesh 城市 → 凝结环 → 蘑菇云，冲击到达镜头时震屏。",engine:"Three.js + UnrealBloom + 自定义后期"},
+ {slug:"black-hole-portal",cat:"炫酷特效",name:"黑洞 / 传送门 / 虫洞",desc:"全片元着色器：引力透镜星空、倾斜吸积盘与光子环；漩涡传送门内可见另一侧世界；虫洞隧道。",engine:"WebGL 片元着色器（Three.js）+ Bloom"},
+ {slug:"ssr-pack-opening",cat:"炫酷特效",name:"SSR 传说级开包动画",desc:"卡包蓄力震动裂光 → 爆开碎片与冲击环 → 彩虹旋转光芒 → SSR 大字砸入 → 卡牌下落翻面带镭射。",engine:"Canvas 2D + CSS 3D"},
+ {slug:"volumetric-light",cat:"炫酷特效",name:"体积光与辉光",desc:"神殿柱廊后的太阳透过缝隙射出「上帝之光」：遮挡缓冲 + 径向采样后期 + Bloom，可拖动光源。",engine:"Three.js + 自定义后期"},
+ {slug:"energy-shield",cat:"炫酷特效",name:"能量护盾受击涟漪",desc:"六边形能量护盾：菲涅耳边缘、受击点闪光与沿球面扩散的涟漪（顶点位移），炮火齐射与激光扫射。",engine:"Three.js + Shader + Bloom"},
+ {slug:"dissolve",cat:"炫酷特效",name:"溶解消散",desc:"噪声阈值溶解 + 燃烧发光边缘 + 边缘粒子飘散，4 种风格（灰烬/奥术/数据/冰晶）与 3 个模型。",engine:"Three.js + onBeforeCompile + Bloom"},
+ {slug:"chain-lightning",cat:"炫酷特效",name:"闪电链",desc:"点击敌人释放闪电，在最近敌人间弹射 4/7/12 次；分形中点位移闪电、分叉、伤害数字与 1/4 分辨率廉价辉光。",engine:"Canvas 2D"},
+ {slug:"sword-slash",cat:"炫酷特效",name:"剑气刀光轨迹",desc:"拖动挥刀留下渐细刀光，快速挥动射出月牙剑气，斩断竹子与木桩（带斜切面、顿帧、震屏）。",engine:"Canvas 2D"},
+ {slug:"danmaku",cat:"炫酷特效",name:"东方风弹幕射击",desc:"480×720 竖版弹幕：4 张符卡（花瓣、星漩、囚笼+自机狙、月轮），擦弹、判定点、炸弹、自动躲避 AI。",engine:"Canvas 2D"},
+ {slug:"fire-smoke",cat:"炫酷特效",name:"火焰与烟雾流体",desc:"全屏着色器火焰：域扭曲 fbm 湍流、黑体色温渐变、上方翻滚烟雾、火星；可添加/拖动多个火源，风力可调。",engine:"WebGL 片元着色器（Three.js）+ Bloom"},
+ {slug:"holo-card",cat:"炫酷特效",name:"全息闪卡",desc:"CSS 3D 倾斜卡片：彩虹镭射、星光闪、金属拉丝、宇宙全息四种镭射层 + 高光 + 闪点，支持陀螺仪。",engine:"CSS 3D + Canvas"},
  {slug:"platformer",cat:"玩法",name:"平台跳跃",desc:"横版关卡、二段跳、踩敌人、金币、尖刺与终点旗，挤压回弹手感。",engine:"Canvas 2D"},
  {slug:"pinball",cat:"玩法",name:"弹球",desc:"霓虹弹珠台：挡板、蓄力发射、弹力柱、目标灯倍率、子步物理防穿透。",engine:"Canvas 2D"},
  {slug:"tower-defense",cat:"玩法",name:"塔防",desc:"箭塔 / 炮塔 / 冰塔，升级、溅射、减速，波次与 Boss，倍速。",engine:"Canvas 2D"},

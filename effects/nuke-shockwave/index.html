@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>核爆冲击波 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}canvas{display:block}
+#fps{position:fixed;right:8px;bottom:8px;font:11px monospace;color:#8f8;background:#0008;padding:2px 6px;border-radius:4px;z-index:99;pointer-events:none}
+.hud{position:fixed;top:10px;left:10px;right:10px;z-index:10;font-size:13px;line-height:1.6;pointer-events:none;text-shadow:0 1px 3px #000}
+.hud b{font-size:15px}.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.hud button,.btn{pointer-events:auto;background:#ffffff1c;color:#fff;border:1px solid #ffffff45;border-radius:999px;padding:6px 12px;font-size:13px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;font-family:inherit}
+.hud button.on{background:#ffffffd8;color:#000}.tip{opacity:.75;font-size:12px}
+</style>
+</head><body>
+<div class="hud"><b>☢️ 核爆冲击波</b><div class="tip">点击地面引爆 · 闪光 → 火球 → 冲击波掀翻建筑 → 凝结环 → 蘑菇云 · 拖动旋转</div>
+<div class="btns"><button id="go">引爆</button><button id="reset">重建城市</button><button id="slow">慢动作</button></div></div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+const P=new URLSearchParams(location.search),DEMO=P.has("demo"),FT=P.has("t")?+P.get("t"):null;
+const Q=(()=>{const coarse=matchMedia("(pointer:coarse)").matches,small=Math.min(innerWidth,innerHeight)<700,weak=(navigator.hardwareConcurrency||8)<=4,low=coarse||small||weak;return{low,pr:Math.min(devicePixelRatio||1,2),n:low?.5:1}})();
+const fpsEl=document.createElement("div");fpsEl.id="fps";document.body.appendChild(fpsEl);
+window.__fps=0;let __fc=0,__ft=performance.now(),__lc=0;
+function perfTick(onLow){__fc++;const n=performance.now();if(n-__ft>=1000){window.__fps=Math.round(__fc*1000/(n-__ft));__fc=0;__ft=n;fpsEl.textContent=window.__fps+" FPS"+(Q.low?" · 省电档":"");if(window.__fps<40&&onLow&&++__lc>=2){__lc=0;onLow()}}}
+import * as THREE from "three";
+import {EffectComposer} from "three/addons/postprocessing/EffectComposer.js";
+import {RenderPass} from "three/addons/postprocessing/RenderPass.js";
+import {UnrealBloomPass} from "three/addons/postprocessing/UnrealBloomPass.js";
+import {ShaderPass} from "three/addons/postprocessing/ShaderPass.js";
+import {OutputPass} from "three/addons/postprocessing/OutputPass.js";
+const R=new THREE.WebGLRenderer({antialias:!Q.low,powerPreference:"high-performance"});
+R.setPixelRatio(Q.pr);R.setSize(innerWidth,innerHeight);document.body.prepend(R.domElement);
+const composer=new EffectComposer(R);composer.setPixelRatio(Q.pr);
+function lowerPR(){if(Q.pr<=.6)return;Q.pr=Math.max(.6,Q.pr*.8);R.setPixelRatio(Q.pr);composer.setPixelRatio(Q.pr);composer.setSize(innerWidth,innerHeight)}
+function onResize(cam){addEventListener("resize",()=>{if(cam.isPerspectiveCamera){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}R.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight)})}
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+R.toneMapping=THREE.ACESFilmicToneMapping;
+const scene=new THREE.Scene();const SKY=new THREE.Color(0x7d9cc4);scene.background=SKY.clone();scene.fog=new THREE.Fog(SKY.clone(),160,520);
+const cam=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.5,600);const CP=new THREE.Vector3(110,34,innerWidth<innerHeight?210:150);cam.position.copy(CP);onResize(cam);
+const ctl=new OrbitControls(cam,R.domElement);ctl.target.set(0,22,0);ctl.enableDamping=true;ctl.maxPolarAngle=1.45;ctl.minDistance=40;ctl.maxDistance=320;
+const hemi=new THREE.HemisphereLight(0xcfe0ff,0x4a4030,1.1);scene.add(hemi);const sunL=new THREE.DirectionalLight(0xfff0d8,1.4);sunL.position.set(-60,80,40);scene.add(sunL);
+const fireL=new THREE.PointLight(0xffa040,0,400,1.2);fireL.position.set(0,10,0);scene.add(fireL);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600,1,1),new THREE.MeshStandardMaterial({color:0x6b6a58,roughness:1}));ground.rotation.x=-Math.PI/2;scene.add(ground);
+// 城市（InstancedMesh）
+const NB=Math.round(700*Q.n+150);const bGeo=new THREE.BoxGeometry(1,1,1);bGeo.translate(0,.5,0);const city=new THREE.InstancedMesh(bGeo,new THREE.MeshStandardMaterial({roughness:.8,metalness:.1}),NB);scene.add(city);
+const B=[];const m4=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler(),pv=new THREE.Vector3(),sv=new THREE.Vector3(),col=new THREE.Color();
+let C0=new THREE.Vector3(0,0,0);
+function buildCity(){B.length=0;for(let i=0;i<NB;i++){const a=Math.random()*TAU,r=12+Math.sqrt(Math.random())*150;const x=Math.round(Math.cos(a)*r/4)*4,z=Math.round(Math.sin(a)*r/4)*4;const h=2+Math.random()**3*(r<60?22:10);
+ B.push({x,z,w:1.5+Math.random()*2,d:1.5+Math.random()*2,h,tilt:0,fall:0,burn:0,dir:Math.atan2(z,x)});col.setHSL(.08+Math.random()*.08,.15,.45+Math.random()*.25);city.setColorAt(i,col)}city.instanceColor.needsUpdate=true;updCity(0)}
+const TAU=Math.PI*2;
+function updCity(front){for(let i=0;i<NB;i++){const b=B[i];const dist=Math.hypot(b.x-C0.x,b.z-C0.z);
+ if(front>dist&&b.fall==0){b.fall=Math.max(.15,1-dist/170);b.burn=Math.max(0,1-dist/90)}
+ if(b.fall>0)b.tilt=Math.min(b.fall*1.5,b.tilt+.06);
+ e.set(0,0,0);q.setFromEuler(e);const ax=new THREE.Vector3(-Math.sin(b.dir),0,Math.cos(b.dir));q.setFromAxisAngle(ax,-b.tilt);
+ pv.set(b.x,0,b.z);sv.set(b.w,b.h*(1-b.burn*.5*(b.fall>0)),b.d);m4.compose(pv,q,sv);city.setMatrixAt(i,m4);
+ if(b.fall>0&&b.burn>0){col.setRGB(.12,.08,.06);city.setColorAt(i,col)}}
+ city.instanceMatrix.needsUpdate=true;if(city.instanceColor)city.instanceColor.needsUpdate=true}
+// 火球 / 蘑菇云共用的湍流着色器
+const NOISE=`float h31(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+float vn(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x),mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x),f.y),mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x),mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y),f.z);}
+float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<5;i++){s+=a*vn(p);p=p*2.03+vec3(1.7,9.2,3.1);a*=.5;}return s;}`;
+function cloudMat(){return new THREE.ShaderMaterial({uniforms:{uT:{value:0},uHeat:{value:1},uA:{value:1}},transparent:true,depthWrite:false,
+ vertexShader:`${NOISE}uniform float uT;varying vec3 vN,vP;varying float vD;void main(){vec3 p=position;float d=fbm(p*2.6+vec3(0.,-uT*.6,0.));p+=normal*(d-.4)*.35;vD=d;vN=normalize(normalMatrix*normal);vP=p;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,
+ fragmentShader:`${NOISE}uniform float uT,uHeat,uA;varying vec3 vN,vP;varying float vD;void main(){float n=fbm(vP*4.+vec3(0.,-uT*.9,uT*.2));float h=clamp(uHeat*(.55+n*.9)+vD*.2,0.,2.);
+ vec3 hot=mix(vec3(.8,.18,.02),vec3(1.,.7,.3),clamp(h-.8,0.,1.))*(.6+h*.6);vec3 smoke=mix(vec3(.12,.1,.09),vec3(.36,.32,.3),n);float rim=pow(1.-abs(dot(vN,vec3(0,0,1))),2.);
+ vec3 c=mix(smoke,hot,smoothstep(.35,.9,h));gl_FragColor=vec4(c,uA*(.75+.25*n)*smoothstep(0.,.25,1.-rim*.6));}`})}
+const ball=new THREE.Mesh(new THREE.IcosahedronGeometry(1,Q.low?4:5),cloudMat());const stem=new THREE.Mesh(new THREE.CylinderGeometry(.6,1.2,1,24,16,true),cloudMat());const cap=new THREE.Mesh(new THREE.TorusGeometry(1,.55,20,48),cloudMat());cap.rotation.x=Math.PI/2;
+const base=new THREE.Mesh(new THREE.TorusGeometry(1,.35,12,48),cloudMat());base.rotation.x=Math.PI/2;
+const nuke=new THREE.Group();nuke.add(ball,stem,cap,base);scene.add(nuke);nuke.visible=false;
+// 凝结环（威尔逊云）+ 地面冲击尘环
+const wilson=new THREE.Mesh(new THREE.SphereGeometry(1,48,24,0,TAU,0,Math.PI/2),new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,uniforms:{uA:{value:0}},
+ vertexShader:"varying vec3 vN;varying vec3 vV;void main(){vN=normalize(normalMatrix*normal);vec4 mv=modelViewMatrix*vec4(position,1.);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}",
+ fragmentShader:"varying vec3 vN,vV;uniform float uA;void main(){float f=pow(1.-abs(dot(vN,vV)),3.);gl_FragColor=vec4(vec3(.95),f*uA*.5);}"}));scene.add(wilson);
+const dustN=Math.round(2400*Q.n),dPos=new Float32Array(dustN*3),dAng=new Float32Array(dustN),dR=new Float32Array(dustN);for(let i=0;i<dustN;i++){dAng[i]=Math.random()*TAU;dR[i]=Math.random()}
+const dGeo=new THREE.BufferGeometry();dGeo.setAttribute("position",new THREE.BufferAttribute(dPos,3));dGeo.setAttribute("aA",new THREE.BufferAttribute(dAng,1));dGeo.setAttribute("aR",new THREE.BufferAttribute(dR,1));
+const dMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{uRad:{value:0},uA:{value:0},uC:{value:C0},uPx:{value:Q.pr}},
+ vertexShader:"attribute float aA,aR;uniform float uRad,uPx;uniform vec3 uC;varying float vR;varying float vF;void main(){vR=aR;float r=uRad*(.82+aR*.2);vec3 p=uC+vec3(cos(aA)*r,aR*aR*uRad*.08+.5,sin(aA)*r);vec4 mv=modelViewMatrix*vec4(p,1.);vF=smoothstep(15.,45.,-mv.z);gl_PointSize=min(80.,uPx*(160.+aR*300.)/-mv.z);gl_Position=projectionMatrix*mv;}",
+ fragmentShader:"varying float vR;varying float vF;uniform float uA;void main(){float d=length(gl_PointCoord-.5);gl_FragColor=vec4(mix(vec3(.55,.48,.4),vec3(.8,.72,.6),vR),uA*vF*smoothstep(.5,0.,d)*.35);}"});
+const dust=new THREE.Points(dGeo,dMat);dust.frustumCulled=false;scene.add(dust);
+// 后期：辉光 + 冲击波扭曲 + 闪白
+composer.addPass(new RenderPass(scene,cam));const bloom=new UnrealBloomPass(new THREE.Vector2(256,256),.6,.5,.7);composer.addPass(bloom);
+const wave=new ShaderPass({uniforms:{tDiffuse:{value:null},c:{value:new THREE.Vector2(.5,.5)},r:{value:-1},amp:{value:0},flash:{value:0},asp:{value:1}},
+ vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}",
+ fragmentShader:`uniform sampler2D tDiffuse;uniform vec2 c;uniform float r,amp,flash,asp;varying vec2 vUv;void main(){vec2 d=vUv-c;d.x*=asp;float l=length(d);float w=r<0.?0.:exp(-pow((l-r)*14.,2.))*amp;vec2 o=d/(l+1e-4)*w*.035;o.x/=asp;
+ vec3 col=vec3(texture2D(tDiffuse,vUv-o*1.2).r,texture2D(tDiffuse,vUv-o).g,texture2D(tDiffuse,vUv-o*.8).b);col=mix(col,vec3(1.,.98,.92),clamp(flash,0.,1.));gl_FragColor=vec4(col,1.);}`});
+composer.addPass(wave);composer.addPass(new OutputPass());
+let tt=-1,slow=false;buildCity();
+function det(p){C0.copy(p||new THREE.Vector3(0,0,0));C0.y=0;nuke.position.copy(C0);wilson.position.copy(C0);fireL.position.set(C0.x,10,C0.z);B.forEach(b=>{b.fall=0;b.tilt=0;b.burn=0});buildCity();tt=0}
+document.getElementById("go").onclick=e=>{e.stopPropagation();det()};document.getElementById("reset").onclick=()=>{tt=-1;nuke.visible=false;buildCity();scene.background.copy(SKY)};
+const sb=document.getElementById("slow");sb.onclick=()=>{slow=!slow;sb.classList.toggle("on",slow)};
+const ray=new THREE.Raycaster(),pt=new THREE.Vector2();let dn=null;R.domElement.addEventListener("pointerdown",e=>dn=[e.clientX,e.clientY]);
+R.domElement.addEventListener("pointerup",e=>{if(!dn||Math.hypot(e.clientX-dn[0],e.clientY-dn[1])>8)return;pt.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);ray.setFromCamera(pt,cam);const h=ray.intersectObject(ground)[0];if(h&&h.point.length()<120)det(h.point)});
+if(FT!==null){det();tt=FT;for(let k=0;k<40;k++)updCity((FT-.3)*55)}else if(DEMO)setTimeout(()=>det(),500);
+const clk=new THREE.Clock(),v=new THREE.Vector3();let tm=0;
+(function f(){requestAnimationFrame(f);perfTick(lowerPR);let dt=Math.min(.05,clk.getDelta());tm+=dt;if(slow)dt*=.3;if(tt>=0&&FT===null)tt+=dt;const T=tt;
+ [ball,stem,cap,base].forEach(m=>m.material.uniforms.uT.value=tm);
+ if(T>=0){nuke.visible=true;
+  // 火球：急速膨胀后上升冷却
+  const rise=Math.max(0,T-1.2);const bs=Math.min(1,T/.6);ball.scale.setScalar(4+bs*12-Math.min(1,rise*.4)*4);ball.position.y=6+bs*6+rise*rise*.8+rise*4;const top=ball.position.y;
+  const heat=Math.max(.25,1.6-T*.12);ball.material.uniforms.uHeat.value=heat;cap.material.uniforms.uHeat.value=heat*.8;stem.material.uniforms.uHeat.value=heat*.6;base.material.uniforms.uHeat.value=Math.max(.15,heat*.3);
+  stem.visible=T>1.2;stem.scale.set(2+rise*.6,Math.max(.1,top-6),2+rise*.6);stem.position.y=(top-6)/2+2;
+  cap.visible=T>2;const ck=Math.max(0,T-2);cap.scale.setScalar(Math.min(1,ck*.6)*(13+ck*2));cap.position.y=top+1;
+  base.visible=T>.4;base.scale.setScalar(6+Math.min(1,T)*8+T*1.2);base.position.y=2;
+  // 地面冲击波
+  const front=Math.max(0,T-.3)*55;updCity(front);dMat.uniforms.uRad.value=front;dMat.uniforms.uA.value=T<.3?0:Math.max(0,1-T/8);
+  wilson.visible=T>.6&&T<4;const wk=T-.6;wilson.scale.setScalar(20+wk*38);wilson.material.uniforms.uA.value=Math.max(0,Math.sin(Math.min(1,wk/3.2)*Math.PI))*.7;
+  // 光照与天空
+  const flash=T<.25?1:Math.exp(-(T-.25)*3.5);fireL.intensity=flash*3000+heat*120;fireL.position.y=top;
+  scene.background.copy(SKY).lerp(new THREE.Color(0xffd0a0),Math.min(1,flash*1.2+heat*.05));scene.fog.color.copy(scene.background);
+  bloom.strength=.6+flash*1.5;
+  // 震屏：冲击到达镜头时
+  const camD=cam.position.distanceTo(C0),arrive=camD/55+.3;const sh=T>arrive?Math.max(0,1.4-(T-arrive))*1.4:0;
+  ctl.update();cam.position.x+=(Math.random()-.5)*sh;cam.position.y+=(Math.random()-.5)*sh;
+  v.copy(C0).setY(4).project(cam);wave.uniforms.c.value.set(v.x*.5+.5,v.y*.5+.5);wave.uniforms.asp.value=innerWidth/innerHeight;
+  const edge=new THREE.Vector3(C0.x+front,0,C0.z).project(cam);wave.uniforms.r.value=T>.3?Math.hypot((edge.x-v.x)*.5*innerWidth/innerHeight,(edge.y-v.y)*.5):-1;wave.uniforms.amp.value=Math.max(0,1-T/5);
+  wave.uniforms.flash.value=T<.08?1:Math.exp(-(T-.08)*9)*.9;
+ }else ctl.update();
+ composer.render()})();
+</script></body></html>

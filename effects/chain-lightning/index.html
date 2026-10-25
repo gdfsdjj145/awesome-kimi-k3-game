@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>闪电链 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}canvas{display:block}
+#fps{position:fixed;right:8px;bottom:8px;font:11px monospace;color:#8f8;background:#0008;padding:2px 6px;border-radius:4px;z-index:99;pointer-events:none}
+.hud{position:fixed;top:10px;left:10px;right:10px;z-index:10;font-size:13px;line-height:1.6;pointer-events:none;text-shadow:0 1px 3px #000}
+.hud b{font-size:15px}.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.hud button,.btn{pointer-events:auto;background:#ffffff1c;color:#fff;border:1px solid #ffffff45;border-radius:999px;padding:6px 12px;font-size:13px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;font-family:inherit}
+.hud button.on{background:#ffffffd8;color:#000}.tip{opacity:.75;font-size:12px}
+</style>
+</head><body><canvas id="c"></canvas>
+<div class="hud"><b>⚡ 闪电链</b><div class="tip">点击 / 轻触敌人附近释放闪电链，最多弹射 N 次 · 分形中点位移闪电 + 低分辨率辉光</div>
+<div class="btns"><button id="storm">雷暴模式</button><button data-n="4">弹射 4</button><button data-n="7" class="on">弹射 7</button><button data-n="12">弹射 12</button><button data-k="0" class="on">雷蓝</button><button data-k="1">紫电</button><button data-k="2">赤雷</button></div></div>
+<script>
+const P=new URLSearchParams(location.search),DEMO=P.has("demo"),FT=P.has("t")?+P.get("t"):null;
+const Q=(()=>{const coarse=matchMedia("(pointer:coarse)").matches,small=Math.min(innerWidth,innerHeight)<700,weak=(navigator.hardwareConcurrency||8)<=4,low=coarse||small||weak;return{low,pr:Math.min(devicePixelRatio||1,2),n:low?.5:1}})();
+const fpsEl=document.createElement("div");fpsEl.id="fps";document.body.appendChild(fpsEl);
+window.__fps=0;let __fc=0,__ft=performance.now(),__lc=0;
+function perfTick(onLow){__fc++;const n=performance.now();if(n-__ft>=1000){window.__fps=Math.round(__fc*1000/(n-__ft));__fc=0;__ft=n;fpsEl.textContent=window.__fps+" FPS"+(Q.low?" · 省电档":"");if(window.__fps<40&&onLow&&++__lc>=2){__lc=0;onLow()}}}
+const c=document.getElementById("c"),x=c.getContext("2d"),gc=document.createElement("canvas"),gx=gc.getContext("2d");let W,H,DPR;
+function rs(){DPR=Math.min(Q.pr,Q.low?1.5:2);W=innerWidth;H=innerHeight;c.width=W*DPR;c.height=H*DPR;c.style.width=W+"px";c.style.height=H+"px";gc.width=Math.ceil(W/4);gc.height=Math.ceil(H/4)}rs();addEventListener("resize",rs);
+const KS=[["#7fd8ff","#e8fbff","#2a7fff"],["#c58bff","#f6e8ff","#7a2aff"],["#ff7a6a","#fff0e0","#ff2a2a"]];let K=KS[0],maxJ=7,storm=DEMO;
+const R=(a,b)=>a+Math.random()*(b-a);
+let foes=[],bolts=[],sparks=[],texts=[],flash=0,shake=0,t=0;
+function spawn(){return{x:R(40,W-40),y:R(H*.2,H*.72),r:R(16,26),hp:100,vx:R(-30,30),vy:R(-20,20),hit:0,ph:R(0,6),dead:0}}
+for(let i=0;i<(Q.low?11:16);i++)foes.push(spawn());
+const caster={x:()=>W/2,y:()=>H-70};
+function bolt(a,b,w,life){const pts=[[a.x,a.y],[b.x,b.y]];let d=Math.hypot(b.x-a.x,b.y-a.y)*.25;let segs=pts;
+ for(let g=0;g<6;g++){const n=[segs[0]];for(let i=0;i<segs.length-1;i++){const p=segs[i],q=segs[i+1],mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2,nx=-(q[1]-p[1]),ny=q[0]-p[0],l=Math.hypot(nx,ny)||1,o=R(-d,d);n.push([mx+nx/l*o,my+ny/l*o],q)}segs=n;d*=.52}
+ const br=[];for(let i=2;i<segs.length-4;i+=Math.floor(R(6,14))){if(Math.random()<.5){const p=segs[i],a2=Math.atan2(segs[i+1][1]-p[1],segs[i+1][0]-p[0])+R(-.9,.9),L=R(20,70);let q=[p[0]+Math.cos(a2)*L,p[1]+Math.sin(a2)*L];br.push([p,[(p[0]+q[0])/2+R(-8,8),(p[1]+q[1])/2+R(-8,8)],q])}}
+ return{segs,br,w,life,max:life,a,b}}
+function chain(px,py){let cur={x:caster.x(),y:caster.y()};const hit=new Set();let tgt=null,best=1e9;
+ for(const f of foes){if(f.dead)continue;const d=Math.hypot(f.x-px,f.y-py);if(d<best){best=d;tgt=f}}
+ if(!tgt||best>200){bolts.push(Object.assign(bolt(cur,{x:px,y:py},3,.3),{a:cur,b:{x:px,y:py}}));burst(px,py,10);return}
+ let dmg=48;for(let j=0;j<maxJ&&tgt;j++){hit.add(tgt);const from=cur,to=tgt;bolts.push(Object.assign(bolt(from,to,3.2-j*.15,.38+j*.06),{a:from,b:to,delay:j*.06}));
+  setTimeout(((f,d)=>()=>{damage(f,d)})(tgt,dmg),j*60);cur=tgt;dmg*=.85;let nb=null,nd=260;for(const f of foes){if(f.dead||hit.has(f))continue;const d=Math.hypot(f.x-cur.x,f.y-cur.y);if(d<nd){nd=d;nb=f}}tgt=nb}
+ flash=.5;shake=8}
+function damage(f,d){if(f.dead)return;f.hp-=d;f.hit=1;burst(f.x,f.y,Math.round(18*Q.n));texts.push({x:f.x,y:f.y-f.r,v:Math.round(d*R(.9,1.15)),l:1,crit:d>40});
+ if(f.hp<=0){f.dead=1;burst(f.x,f.y,Math.round(60*Q.n),1);shake=Math.max(shake,12);setTimeout(()=>Object.assign(f,spawn()),1400)}}
+function burst(x0,y0,n,big){for(let i=0;i<n;i++){const a=R(0,6.283),s=R(80,big?520:320);sparks.push({x:x0,y:y0,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:R(.3,.8),m:0})}if(sparks.length>2500*Q.n)sparks.splice(0,sparks.length-2500*Q.n)}
+c.addEventListener("pointerdown",e=>chain(e.clientX,e.clientY));
+document.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{maxJ=+b.dataset.n;document.querySelectorAll("[data-n]").forEach(z=>z.classList.toggle("on",z==b))});
+document.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{K=KS[+b.dataset.k];document.querySelectorAll("[data-k]").forEach(z=>z.classList.toggle("on",z==b))});
+const sb=document.getElementById("storm");sb.classList.toggle("on",storm);sb.onclick=()=>{storm=!storm;sb.classList.toggle("on",storm)};
+let nextStorm=0,last=performance.now();
+function path(g,s,ox,oy,sc){g.beginPath();g.moveTo((s[0][0]+ox)*sc,(s[0][1]+oy)*sc);for(let i=1;i<s.length;i++)g.lineTo((s[i][0]+ox)*sc,(s[i][1]+oy)*sc)}
+function draw(g,sc,ox,oy,glow){
+ g.globalCompositeOperation="lighter";g.lineCap=g.lineJoin="round";
+ for(const b of bolts){if(b.delay>0)continue;const k=b.life/b.max;
+  const layers=glow?[[b.w*7,K[2],.5*k]]:[[b.w*3.2,K[0],.55*k],[b.w*1.1,K[1],k]];
+  for(const [w,col,a] of layers){g.strokeStyle=col;g.globalAlpha=a;g.lineWidth=w*sc;path(g,b.segs,ox,oy,sc);g.stroke();for(const br of b.br){path(g,br,ox,oy,sc);g.lineWidth=w*sc*.5;g.stroke()}}}
+ g.globalAlpha=1;for(const p of sparks){g.fillStyle=glow?K[2]:K[1];g.globalAlpha=Math.min(1,p.l*2);const s=(glow?6:2)*sc;g.fillRect((p.x+ox)*sc-s/2,(p.y+oy)*sc-s/2,s,s)}
+ for(const f of foes){if(f.dead)continue;if(f.hit>0){g.globalAlpha=f.hit;g.fillStyle=K[0];g.beginPath();g.arc((f.x+ox)*sc,(f.y+oy)*sc,f.r*(glow?2.6:1.3)*sc,0,7);g.fill()}}
+ g.globalAlpha=1;g.globalCompositeOperation="source-over"}
+function loop(now){requestAnimationFrame(loop);perfTick(()=>{if(Q.n>.3)Q.n*=.75});const dt=Math.min(.05,(now-last)/1000);last=now;t+=dt;
+ if(storm&&t>nextStorm){nextStorm=t+R(.5,1.1);const alive=foes.filter(f=>!f.dead);if(alive.length){const f=alive[Math.random()*alive.length|0];chain(f.x,f.y)}}
+ for(const b of bolts){if(b.delay>0){b.delay-=dt;continue}b.life-=dt;if(Math.random()<.45){const nb=bolt(b.a,b.b,b.w,b.life);b.segs=nb.segs;b.br=nb.br}}bolts=bolts.filter(b=>b.life>0);
+ for(const p of sparks){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.92;p.vy=p.vy*.92+300*dt;p.l-=dt}sparks=sparks.filter(p=>p.l>0);
+ for(const f of foes){if(f.dead)continue;f.x+=f.vx*dt;f.y+=f.vy*dt;if(f.x<f.r||f.x>W-f.r)f.vx*=-1;if(f.y<H*.15||f.y>H*.78)f.vy*=-1;f.hit=Math.max(0,f.hit-dt*4);f.ph+=dt*3}
+ for(const s of texts){s.y-=40*dt;s.l-=dt*.9}texts=texts.filter(s=>s.l>0);
+ shake*=.88;flash*=.85;const ox=R(-shake,shake),oy=R(-shake,shake);
+ x.setTransform(DPR,0,0,DPR,0,0);const bg=x.createRadialGradient(W/2,H*.6,0,W/2,H*.6,Math.max(W,H)*.8);bg.addColorStop(0,"#141a2e");bg.addColorStop(1,"#04050a");x.fillStyle=bg;x.fillRect(0,0,W,H);
+ x.save();x.translate(ox,oy);
+ // 地面网格
+ x.strokeStyle="#ffffff0c";x.lineWidth=1;for(let i=0;i<W;i+=40){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke()}for(let j=0;j<H;j+=40){x.beginPath();x.moveTo(0,j);x.lineTo(W,j);x.stroke()}
+ // 敌人：史莱姆
+ for(const f of foes){if(f.dead)continue;const sq=1+Math.sin(f.ph)*.08;x.fillStyle=f.hit>.2?"#fff":"#47d18c";x.beginPath();x.ellipse(f.x,f.y,f.r*sq,f.r/sq,0,0,7);x.fill();
+  x.fillStyle="#0b1a12";x.beginPath();x.arc(f.x-f.r*.35,f.y-f.r*.15,f.r*.14,0,7);x.arc(f.x+f.r*.35,f.y-f.r*.15,f.r*.14,0,7);x.fill();
+  x.fillStyle="#0008";x.fillRect(f.x-f.r,f.y-f.r-10,f.r*2,4);x.fillStyle="#ff5a5a";x.fillRect(f.x-f.r,f.y-f.r-10,f.r*2*Math.max(0,f.hp/100),4)}
+ // 施法者
+ const cx=caster.x(),cy=caster.y();const g2=x.createRadialGradient(cx,cy,0,cx,cy,44);g2.addColorStop(0,K[1]);g2.addColorStop(.3,K[0]);g2.addColorStop(1,"transparent");x.fillStyle=g2;x.beginPath();x.arc(cx,cy,44+Math.sin(t*8)*4,0,7);x.fill();
+ x.restore();
+ // 便宜辉光：1/4 分辨率绘制宽线条再放大叠加
+ gx.clearRect(0,0,gc.width,gc.height);draw(gx,.25,ox,oy,true);x.save();x.globalCompositeOperation="lighter";x.imageSmoothingEnabled=true;x.globalAlpha=.9;x.drawImage(gc,0,0,W,H);x.restore();
+ draw(x,1,ox,oy,false);
+ x.font="bold 18px system-ui";x.textAlign="center";for(const s of texts){x.globalAlpha=Math.min(1,s.l*2);x.fillStyle=s.crit?"#ffe066":"#fff";x.strokeStyle="#000";x.lineWidth=3;x.strokeText(s.v,s.x,s.y);x.fillText(s.v,s.x,s.y)}x.globalAlpha=1;
+ if(flash>.01){x.fillStyle=K[0];x.globalAlpha=flash*.25;x.fillRect(0,0,W,H);x.globalAlpha=1}}
+requestAnimationFrame(loop);
+if(DEMO)setTimeout(()=>{const f=foes[0];chain(f.x,f.y)},600);
+</script></body></html>

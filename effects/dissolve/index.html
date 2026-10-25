@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>溶解消散 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}canvas{display:block}
+#fps{position:fixed;right:8px;bottom:8px;font:11px monospace;color:#8f8;background:#0008;padding:2px 6px;border-radius:4px;z-index:99;pointer-events:none}
+.hud{position:fixed;top:10px;left:10px;right:10px;z-index:10;font-size:13px;line-height:1.6;pointer-events:none;text-shadow:0 1px 3px #000}
+.hud b{font-size:15px}.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.hud button,.btn{pointer-events:auto;background:#ffffff1c;color:#fff;border:1px solid #ffffff45;border-radius:999px;padding:6px 12px;font-size:13px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;font-family:inherit}
+.hud button.on{background:#ffffffd8;color:#000}.tip{opacity:.75;font-size:12px}
+</style>
+<style>#pr{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(80vw,420px);z-index:10;accent-color:#ff8a3a}</style></head><body>
+<div class="hud"><b>✨ 溶解消散</b><div class="tip">噪声阈值溶解 + 燃烧边缘 + 边缘粒子飘散 · 拖动旋转 · 底部滑条手动控制</div>
+<div class="btns"><button data-s="0" class="on">灰烬</button><button data-s="1">奥术</button><button data-s="2">数据</button><button data-s="3">冰晶</button>
+<button data-g="0" class="on">环面结</button><button data-g="1">茶壶</button><button data-g="2">神像</button><button id="play" class="on">自动播放</button></div></div>
+<input id="pr" type="range" min="0" max="1" step="0.001" value="0">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+const P=new URLSearchParams(location.search),DEMO=P.has("demo"),FT=P.has("t")?+P.get("t"):null;
+const Q=(()=>{const coarse=matchMedia("(pointer:coarse)").matches,small=Math.min(innerWidth,innerHeight)<700,weak=(navigator.hardwareConcurrency||8)<=4,low=coarse||small||weak;return{low,pr:Math.min(devicePixelRatio||1,2),n:low?.5:1}})();
+const fpsEl=document.createElement("div");fpsEl.id="fps";document.body.appendChild(fpsEl);
+window.__fps=0;let __fc=0,__ft=performance.now(),__lc=0;
+function perfTick(onLow){__fc++;const n=performance.now();if(n-__ft>=1000){window.__fps=Math.round(__fc*1000/(n-__ft));__fc=0;__ft=n;fpsEl.textContent=window.__fps+" FPS"+(Q.low?" · 省电档":"");if(window.__fps<40&&onLow&&++__lc>=2){__lc=0;onLow()}}}
+import * as THREE from "three";
+import {EffectComposer} from "three/addons/postprocessing/EffectComposer.js";
+import {RenderPass} from "three/addons/postprocessing/RenderPass.js";
+import {UnrealBloomPass} from "three/addons/postprocessing/UnrealBloomPass.js";
+import {ShaderPass} from "three/addons/postprocessing/ShaderPass.js";
+import {OutputPass} from "three/addons/postprocessing/OutputPass.js";
+const R=new THREE.WebGLRenderer({antialias:!Q.low,powerPreference:"high-performance"});
+R.setPixelRatio(Q.pr);R.setSize(innerWidth,innerHeight);document.body.prepend(R.domElement);
+const composer=new EffectComposer(R);composer.setPixelRatio(Q.pr);
+function lowerPR(){if(Q.pr<=.6)return;Q.pr=Math.max(.6,Q.pr*.8);R.setPixelRatio(Q.pr);composer.setPixelRatio(Q.pr);composer.setSize(innerWidth,innerHeight)}
+function onResize(cam){addEventListener("resize",()=>{if(cam.isPerspectiveCamera){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}R.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight)})}
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+import {TeapotGeometry} from "three/addons/geometries/TeapotGeometry.js";
+import {MeshSurfaceSampler} from "three/addons/math/MeshSurfaceSampler.js";
+import * as BGU from "three/addons/utils/BufferGeometryUtils.js";
+R.toneMapping=THREE.ACESFilmicToneMapping;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x07070c);
+const cam=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,.1,100);cam.position.set(0,1,innerWidth<innerHeight?11:7.5);onResize(cam);
+const ctl=new OrbitControls(cam,R.domElement);ctl.enableDamping=true;ctl.enablePan=false;ctl.autoRotate=true;ctl.autoRotateSpeed=1.2;
+scene.add(new THREE.HemisphereLight(0xbbccff,0x201010,.8));const dl=new THREE.DirectionalLight(0xffffff,2);dl.position.set(3,5,4);scene.add(dl);const bl=new THREE.DirectionalLight(0x6688ff,1.2);bl.position.set(-4,1,-3);scene.add(bl);
+// JS 与 GLSL 使用完全相同的噪声函数，保证粒子在材质被烧掉的瞬间出现
+const NJ=(x,y,z,f)=>(Math.sin(x*f+Math.sin(y*f*1.3))+Math.sin(y*f*.9+Math.sin(z*f*1.7))+Math.sin(z*f*1.1+Math.sin(x*f*.7))+Math.sin((x+y+z)*f*2.3)*.5)/7+.5;
+const NG=`float NG(vec3 p,float f){return (sin(p.x*f+sin(p.y*f*1.3))+sin(p.y*f*.9+sin(p.z*f*1.7))+sin(p.z*f*1.1+sin(p.x*f*.7))+sin((p.x+p.y+p.z)*f*2.3)*.5)/7.+.5;}
+float TH(vec3 p){return NG(p,3.1)*.7+NG(p,9.7)*.3*.0+ (p.y+1.6)/3.2*.45 - .15;}`;
+const STY=[{edge:0xff6a10,edge2:0xffe080,base:0x8a8f9a,metal:.6},{edge:0x9a40ff,edge2:0xffb0ff,base:0x2a2440,metal:.3},{edge:0x20e0ff,edge2:0xe0ffff,base:0x203040,metal:.8},{edge:0x60c0ff,edge2:0xffffff,base:0xb0d0f0,metal:.1}];
+const U={uP:{value:0},uE:{value:new THREE.Color()},uE2:{value:new THREE.Color()},uT:{value:0},uSty:{value:0}};
+const mat=new THREE.MeshStandardMaterial({metalness:.6,roughness:.35,side:THREE.DoubleSide});
+mat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,U);
+ sh.vertexShader=sh.vertexShader.replace("#include <common>","#include <common>\nvarying vec3 vOP;").replace("#include <begin_vertex>","#include <begin_vertex>\nvOP=position;");
+ sh.fragmentShader=sh.fragmentShader.replace("#include <common>",`#include <common>\nvarying vec3 vOP;uniform float uP,uT,uSty;uniform vec3 uE,uE2;\n${NG}`)
+ .replace("#include <emissivemap_fragment>",`#include <emissivemap_fragment>
+ float th=TH(vOP),k=th-uP*1.3+.15;
+ if(uSty>1.5&&uSty<2.5){vec3 g=floor(vOP*14.)/14.;k=TH(g)-uP*1.3+.15;}
+ if(k<0.)discard;float e=1.-smoothstep(0.,.07,k);float e2=1.-smoothstep(0.,.02,k);
+ if(uSty>1.5&&uSty<2.5){float gl=step(.5,fract(vOP.y*40.+uT*3.));e*=.6+.4*gl;}
+ totalEmissiveRadiance+=uE*e*2.2+uE2*e2*3.5;diffuseColor.rgb*=1.-e*.85;`);};
+const meshes=[new THREE.TorusKnotGeometry(1.1,.36,Q.low?160:260,Q.low?24:40),new TeapotGeometry(1.2,Q.low?8:14),(()=>{const parts=[];
+ const add=(g,x,y,z,sx=1,sy=1,sz=1)=>{g.scale(sx,sy,sz);g.translate(x,y,z);parts.push(g.toNonIndexed())};
+ add(new THREE.SphereGeometry(.55,32,24),0,1.15,0);add(new THREE.CylinderGeometry(.25,.32,.4,24),0,.6,0);add(new THREE.SphereGeometry(.9,32,24),0,-.2,0,1,1.05,.7);
+ add(new THREE.CylinderGeometry(.9,1.25,.9,32),0,-1.2,0);add(new THREE.ConeGeometry(.18,.5,12),0,1.85,0);add(new THREE.TorusGeometry(.7,.06,8,48),0,1.5,0,1,1,1);
+ add(new THREE.CylinderGeometry(1.4,1.4,.25,40),0,-1.75,0);return BGU.mergeGeometries(parts.map(g=>{g.deleteAttribute("uv");return g}))})()];
+meshes.forEach(g=>{g.computeBoundingBox();const b=g.boundingBox,c=b.getCenter(new THREE.Vector3()),s=3.2/(b.max.y-b.min.y+.001)*(g.type=="TorusKnotGeometry"?1.2:1);g.translate(-c.x,-c.y,-c.z);g.scale(s,s,s);g.computeVertexNormals()});
+const mesh=new THREE.Mesh(meshes[0],mat);scene.add(mesh);
+// 边缘粒子：每个粒子带自身阈值，按进度解析计算位置
+const N=Math.round(14000*Q.n);const pg=new THREE.BufferGeometry();const pos=new Float32Array(N*3),th=new Float32Array(N),rnd=new Float32Array(N);
+pg.setAttribute("position",new THREE.BufferAttribute(pos,3));pg.setAttribute("aTh",new THREE.BufferAttribute(th,1));pg.setAttribute("aR",new THREE.BufferAttribute(rnd,1));
+const PU={uP:U.uP,uE:U.uE,uE2:U.uE2,uPx:{value:Q.pr},uT:U.uT,uSty:U.uSty};
+const pMat=new THREE.ShaderMaterial({uniforms:PU,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+ vertexShader:`attribute float aTh,aR;uniform float uP,uPx,uT,uSty;varying float vA;varying float vR;
+ void main(){float age=(uP*1.3-.15-aTh)*3.2;vR=aR;if(age<0.||age>1.){vA=0.;gl_Position=vec4(2.,2.,2.,1.);gl_PointSize=0.;return;}
+ vec3 p=position;float up=uSty>2.5?-.4:1.;p+=normalize(position+vec3(0.,.001,0.))*age*.6*(.5+aR);p.y+=age*age*2.2*up*(.4+aR);p.x+=sin(age*6.+aR*20.)*.25*age;p.z+=cos(age*5.+aR*17.)*.25*age;
+ vA=(1.-age)*(uSty>1.5&&uSty<2.5?step(.3,fract(age*8.+aR*7.)):1.);vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=uPx*(uSty>1.5&&uSty<2.5?55.:40.)*(1.-age*.6)*(.4+aR)/-mv.z;gl_Position=projectionMatrix*mv;}`,
+ fragmentShader:`uniform vec3 uE,uE2;uniform float uSty;varying float vA,vR;void main(){vec2 q=gl_PointCoord-.5;float d=uSty>1.5&&uSty<2.5?max(abs(q.x),abs(q.y))*1.2:length(q);
+ gl_FragColor=vec4(mix(uE,uE2,vR*vA),vA*.55*smoothstep(.5,.1,d));}`});
+const pts=new THREE.Points(pg,pMat);scene.add(pts);
+function sample(){const s=new MeshSurfaceSampler(mesh).build(),v=new THREE.Vector3();for(let i=0;i<N;i++){s.sample(v);pos.set([v.x,v.y,v.z],i*3);th[i]=NJ(v.x,v.y,v.z,3.1)*.7+(v.y+1.6)/3.2*.45-.15;rnd[i]=Math.random()}
+ pg.attributes.position.needsUpdate=pg.attributes.aTh.needsUpdate=pg.attributes.aR.needsUpdate=true;pg.computeBoundingSphere()}
+sample();
+function setSty(i){const s=STY[i];U.uE.value.setHex(s.edge);U.uE2.value.setHex(s.edge2);mat.color.setHex(s.base);mat.metalness=s.metal;U.uSty.value=i}setSty(+(P.get("s")||0));
+document.querySelectorAll("[data-s]").forEach(b=>{b.classList.toggle("on",+b.dataset.s==U.uSty.value);b.onclick=()=>{setSty(+b.dataset.s);document.querySelectorAll("[data-s]").forEach(x=>x.classList.toggle("on",x==b))}});
+document.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{mesh.geometry=meshes[+b.dataset.g];sample();document.querySelectorAll("[data-g]").forEach(x=>x.classList.toggle("on",x==b))});
+const pr=document.getElementById("pr"),pb=document.getElementById("play");let play=FT===null,ph=0;pb.onclick=()=>{play=!play;pb.classList.toggle("on",play)};pr.oninput=()=>{play=false;pb.classList.remove("on");U.uP.value=+pr.value};
+composer.addPass(new RenderPass(scene,cam));composer.addPass(new UnrealBloomPass(new THREE.Vector2(256,256),.55,.35,.85));composer.addPass(new OutputPass());
+if(FT!==null){U.uP.value=FT;pr.value=FT}
+const clk=new THREE.Clock();
+(function f(){requestAnimationFrame(f);perfTick(lowerPR);const dt=Math.min(.05,clk.getDelta());U.uT.value+=dt;
+ if(play){ph+=dt*.16;const k=ph%2;U.uP.value=k<1?Math.min(1,k*1.15):Math.max(0,1-(k-1)*1.6);pr.value=U.uP.value}
+ ctl.update();composer.render()})();
+</script></body></html>

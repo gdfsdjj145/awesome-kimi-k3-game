@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>全息闪卡 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}canvas{display:block}
+#fps{position:fixed;right:8px;bottom:8px;font:11px monospace;color:#8f8;background:#0008;padding:2px 6px;border-radius:4px;z-index:99;pointer-events:none}
+.hud{position:fixed;top:10px;left:10px;right:10px;z-index:10;font-size:13px;line-height:1.6;pointer-events:none;text-shadow:0 1px 3px #000}
+.hud b{font-size:15px}.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.hud button,.btn{pointer-events:auto;background:#ffffff1c;color:#fff;border:1px solid #ffffff45;border-radius:999px;padding:6px 12px;font-size:13px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;font-family:inherit}
+.hud button.on{background:#ffffffd8;color:#000}.tip{opacity:.75;font-size:12px}
+</style>
+<style>
+html,body{overflow:auto;touch-action:pan-y;background:radial-gradient(ellipse at 50% 0%,#2a2350,#0b0a14 70%)}
+.wrap{min-height:100%;display:flex;flex-wrap:wrap;gap:34px;justify-content:center;align-content:center;padding:110px 16px 40px;perspective:900px}
+.card{--mx:50%;--my:50%;--rx:0deg;--ry:0deg;--o:0;width:min(78vw,250px);aspect-ratio:63/88;position:relative;border-radius:14px;transform-style:preserve-3d;transform:rotateX(var(--rx)) rotateY(var(--ry));transition:transform .5s cubic-bezier(.2,.8,.2,1),box-shadow .3s;cursor:pointer;touch-action:none;will-change:transform}
+.card.act{transition:transform .06s linear}
+.card .in{position:absolute;inset:0;border-radius:14px;overflow:hidden;box-shadow:0 20px 50px #0009,0 0 0 1px #ffffff30 inset}
+.art{position:absolute;inset:0}
+.frame{position:absolute;inset:0;border-radius:14px;border:9px solid transparent;background:linear-gradient(135deg,#f8e7a8,#b98a2e,#fff4c4,#8a6a20) border-box;-webkit-mask:linear-gradient(#000 0 0) padding-box exclude,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) padding-box exclude,linear-gradient(#000 0 0)}
+.name{position:absolute;left:16px;right:16px;bottom:16px;padding:8px 10px;border-radius:8px;background:#0008;font-weight:800;font-size:15px;letter-spacing:.08em}
+.name small{display:block;font-weight:400;font-size:11px;opacity:.8;letter-spacing:0}
+.rar{position:absolute;top:14px;right:16px;font-weight:900;font-size:22px;font-style:italic;background:linear-gradient(#fff,#ffd36b);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 6px #ffb000)}
+.holo,.spark,.glare{position:absolute;inset:0;border-radius:14px;pointer-events:none}
+.holo{mix-blend-mode:color-dodge;opacity:calc(.08 + var(--o)*.45);background:repeating-linear-gradient(115deg,#ff0080 0%,#ffcc00 6%,#00ff9c 12%,#00b3ff 18%,#c800ff 24%,#ff0080 30%);background-size:300% 300%;background-position:var(--mx) var(--my);filter:brightness(.6) contrast(1.3) saturate(1.2)}
+.spark{mix-blend-mode:color-dodge;opacity:calc(var(--o)*.9);background-image:radial-gradient(circle at 20% 30%,#fff 0 1px,transparent 2px),radial-gradient(circle at 70% 60%,#fff 0 1px,transparent 2px),radial-gradient(circle at 40% 80%,#fff 0 1.2px,transparent 2px),radial-gradient(circle at 85% 20%,#fff 0 1px,transparent 2px);background-size:37px 41px,53px 47px,61px 59px,43px 37px;background-position:calc(var(--mx)*.3) calc(var(--my)*.3)}
+.glare{mix-blend-mode:overlay;background:radial-gradient(circle at var(--mx) var(--my),#ffffffd0 0%,#ffffff40 25%,transparent 55%);opacity:calc(.3 + var(--o)*.7)}
+.t-star .holo{background:repeating-radial-gradient(circle at var(--mx) var(--my),#ff7ad9 0 8px,#7ad9ff 16px,#fff27a 24px,#ff7ad9 32px);background-size:100% 100%}
+.t-metal .holo{mix-blend-mode:overlay;background:repeating-linear-gradient(90deg,#fff3 0 1px,#0003 2px 3px),linear-gradient(115deg,transparent 30%,#fff 50%,transparent 70%);background-size:auto,250% 250%;background-position:0 0,var(--mx) var(--my)}
+.t-cosmos .holo{background:radial-gradient(circle at var(--mx) var(--my),#7a5cff,transparent 60%),repeating-conic-gradient(from 0deg at 50% 50%,#ff008055 0 10deg,#00e0ff55 20deg,#ffd00055 30deg,#ff008055 40deg)}
+.card.big{position:fixed;left:50%;top:50%;z-index:50;width:min(84vw,340px);margin:0;transform:translate(-50%,-50%) rotateX(var(--rx)) rotateY(var(--ry))}
+#veil{position:fixed;inset:0;background:#000b;opacity:0;pointer-events:none;transition:.3s;z-index:40}#veil.on{opacity:1;pointer-events:auto}
+#gyro{display:none}
+</style></head><body>
+<div class="hud"><b>🌈 全息闪卡</b><div class="tip">鼠标悬停 / 手指拖动倾斜卡片，镭射与高光随角度变化 · 点击放大 · 手机可开启陀螺仪</div>
+<div class="btns"><button id="gyro">开启陀螺仪</button><button id="idle" class="on">待机摆动</button></div></div>
+<div id="veil"></div><div class="wrap" id="wrap"></div>
+<script>
+const P=new URLSearchParams(location.search),DEMO=P.has("demo"),FT=P.has("t")?+P.get("t"):null;
+const Q=(()=>{const coarse=matchMedia("(pointer:coarse)").matches,small=Math.min(innerWidth,innerHeight)<700,weak=(navigator.hardwareConcurrency||8)<=4,low=coarse||small||weak;return{low,pr:Math.min(devicePixelRatio||1,2),n:low?.5:1}})();
+const fpsEl=document.createElement("div");fpsEl.id="fps";document.body.appendChild(fpsEl);
+window.__fps=0;let __fc=0,__ft=performance.now(),__lc=0;
+function perfTick(onLow){__fc++;const n=performance.now();if(n-__ft>=1000){window.__fps=Math.round(__fc*1000/(n-__ft));__fc=0;__ft=n;fpsEl.textContent=window.__fps+" FPS"+(Q.low?" · 省电档":"");if(window.__fps<40&&onLow&&++__lc>=2){__lc=0;onLow()}}}
+const CARDS=[{t:"t-rainbow",n:"苍穹龙皇",s:"彩虹镭射 · 传说",e:"🐉",bg:["#1d3b8a","#6a2ca8"],r:"SSR"},{t:"t-star",n:"星辉魔女",s:"星光闪 · 史诗",e:"🧙‍♀️",bg:["#3a1650","#c2408a"],r:"SSR"},{t:"t-metal",n:"钢铁守卫",s:"金属拉丝 · 稀有",e:"🛡️",bg:["#2a3440","#7a8a9a"],r:"SR"},{t:"t-cosmos",n:"虚空行者",s:"宇宙全息 · 传说",e:"🌌",bg:["#06061a","#2b1a6a"],r:"UR"}];
+const wrap=document.getElementById("wrap");
+function art(cd){const cv=document.createElement("canvas");cv.width=252;cv.height=352;const g=cv.getContext("2d");const gr=g.createLinearGradient(0,0,252,352);gr.addColorStop(0,cd.bg[0]);gr.addColorStop(1,cd.bg[1]);g.fillStyle=gr;g.fillRect(0,0,252,352);
+ for(let i=0;i<14;i++){g.strokeStyle=`rgba(255,255,255,${.04+i*.006})`;g.lineWidth=2;g.beginPath();g.arc(126,150,20+i*14,0,7);g.stroke()}
+ for(let i=0;i<60;i++){g.fillStyle="#fff";g.globalAlpha=Math.random()*.7;g.fillRect(Math.random()*252,Math.random()*352,1.5,1.5)}g.globalAlpha=1;
+ g.font="110px serif";g.textAlign="center";g.textBaseline="middle";g.shadowColor="#fff8";g.shadowBlur=24;g.fillText(cd.e,126,150);cv.className="art";cv.style.width="100%";cv.style.height="100%";return cv}
+const els=CARDS.map(cd=>{const el=document.createElement("div");el.className="card "+cd.t;el.innerHTML=`<div class="in"></div>`;const inn=el.firstChild;inn.appendChild(art(cd));
+ inn.insertAdjacentHTML("beforeend",`<div class="frame"></div><div class="rar">${cd.r}</div><div class="name">${cd.n}<small>${cd.s}</small></div><div class="holo"></div><div class="spark"></div><div class="glare"></div>`);wrap.appendChild(el);return el});
+function set(el,px,py,o){const rx=(.5-py)*30,ry=(px-.5)*36;el.style.setProperty("--mx",px*100+"%");el.style.setProperty("--my",py*100+"%");el.style.setProperty("--rx",rx+"deg");el.style.setProperty("--ry",ry+"deg");el.style.setProperty("--o",o)}
+let active=null,idle=true,big=null;
+els.forEach(el=>{
+ const mv=e=>{const r=el.getBoundingClientRect();const px=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),py=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));active=el;el.classList.add("act");set(el,px,py,1)};
+ el.addEventListener("pointermove",mv);el.addEventListener("pointerdown",e=>{el.setPointerCapture(e.pointerId);mv(e);el._d=[e.clientX,e.clientY]});
+ el.addEventListener("pointerup",e=>{if(el._d&&Math.hypot(e.clientX-el._d[0],e.clientY-el._d[1])<6)toggleBig(el);el._d=null});
+ el.addEventListener("pointerleave",()=>{if(active==el)active=null;el.classList.remove("act");set(el,.5,.5,0)})});
+const veil=document.getElementById("veil");function toggleBig(el){if(big){big.classList.remove("big");veil.classList.remove("on");const b=big;big=null;if(b==el)return}big=el;el.classList.add("big");veil.classList.add("on")}
+veil.onclick=()=>big&&toggleBig(big);
+const ib=document.getElementById("idle");ib.onclick=()=>{idle=!idle;ib.classList.toggle("on",idle)};
+let gyro=null;const gb=document.getElementById("gyro");if("DeviceOrientationEvent" in window&&matchMedia("(pointer:coarse)").matches){gb.style.display="inline-block";gb.onclick=async()=>{try{if(DeviceOrientationEvent.requestPermission)await DeviceOrientationEvent.requestPermission();addEventListener("deviceorientation",e=>{gyro=[Math.max(0,Math.min(1,.5+(e.gamma||0)/50)),Math.max(0,Math.min(1,.5+((e.beta||45)-45)/50))]});gb.classList.add("on")}catch(err){gb.textContent="陀螺仪不可用"}}}
+let t=0,last=performance.now();
+(function loop(now){requestAnimationFrame(loop);perfTick();t+=(now-last)/1000;last=now;
+ els.forEach((el,i)=>{if(el==active)return;if(gyro){set(el,gyro[0],gyro[1],1);return}if(idle){const px=.5+Math.sin(t*.9+i*1.3)*.35,py=.5+Math.cos(t*.7+i)*.3;set(el,px,py,.6)}})})(last);
+if(DEMO){idle=true}
+</script></body></html>

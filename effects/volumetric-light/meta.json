@@ -1,0 +1,27 @@
+{
+  "name": "体积光与辉光",
+  "slug": "volumetric-light",
+  "category": "炫酷特效",
+  "author": "Grok Bot（代 kajian du 制作）",
+  "generated_by_kimi": false,
+  "note": "参考实现：由 Grok Bot 编写，非 Kimi 生成。prompt.md 中的提示词可喂给 Kimi K3.1 Pro 复现对比。FPS 数据来自无 GPU 的软件渲染（SwiftShader）环境，仅供参考。",
+  "model": "Grok Bot（AI 助手，底层模型未公开）",
+  "engine": "Three.js + 自定义后期",
+  "rounds": 4,
+  "time": "约 15–30 分钟（估计）",
+  "cost": 0,
+  "cost_currency": "USD",
+  "single_file": true,
+  "external_services": "无（仅 jsDelivr CDN 开源库）",
+  "created": "2026-10-25",
+  "batch": 4,
+  "mobile_ready": true,
+  "tags": [
+    "参考实现",
+    "炫酷特效",
+    "体积光",
+    "God Rays",
+    "后期",
+    "Three.js"
+  ]
+}

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>体积光与辉光 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}canvas{display:block}
+#fps{position:fixed;right:8px;bottom:8px;font:11px monospace;color:#8f8;background:#0008;padding:2px 6px;border-radius:4px;z-index:99;pointer-events:none}
+.hud{position:fixed;top:10px;left:10px;right:10px;z-index:10;font-size:13px;line-height:1.6;pointer-events:none;text-shadow:0 1px 3px #000}
+.hud b{font-size:15px}.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.hud button,.btn{pointer-events:auto;background:#ffffff1c;color:#fff;border:1px solid #ffffff45;border-radius:999px;padding:6px 12px;font-size:13px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;font-family:inherit}
+.hud button.on{background:#ffffffd8;color:#000}.tip{opacity:.75;font-size:12px}
+</style>
+</head><body>
+<div class="hud"><b>☀️ 体积光 + 辉光</b><div class="tip">移动鼠标 / 手指拖动光源 · 遮挡缓冲 + 径向采样实现「上帝之光」</div>
+<div class="btns"><button id="gr" class="on">体积光</button><button id="bl" class="on">辉光</button><button data-c="0" class="on">黄昏</button><button data-c="1">月光</button><button data-c="2">圣殿</button></div></div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+const P=new URLSearchParams(location.search),DEMO=P.has("demo"),FT=P.has("t")?+P.get("t"):null;
+const Q=(()=>{const coarse=matchMedia("(pointer:coarse)").matches,small=Math.min(innerWidth,innerHeight)<700,weak=(navigator.hardwareConcurrency||8)<=4,low=coarse||small||weak;return{low,pr:Math.min(devicePixelRatio||1,2),n:low?.5:1}})();
+const fpsEl=document.createElement("div");fpsEl.id="fps";document.body.appendChild(fpsEl);
+window.__fps=0;let __fc=0,__ft=performance.now(),__lc=0;
+function perfTick(onLow){__fc++;const n=performance.now();if(n-__ft>=1000){window.__fps=Math.round(__fc*1000/(n-__ft));__fc=0;__ft=n;fpsEl.textContent=window.__fps+" FPS"+(Q.low?" · 省电档":"");if(window.__fps<40&&onLow&&++__lc>=2){__lc=0;onLow()}}}
+import * as THREE from "three";
+import {EffectComposer} from "three/addons/postprocessing/EffectComposer.js";
+import {RenderPass} from "three/addons/postprocessing/RenderPass.js";
+import {UnrealBloomPass} from "three/addons/postprocessing/UnrealBloomPass.js";
+import {ShaderPass} from "three/addons/postprocessing/ShaderPass.js";
+import {OutputPass} from "three/addons/postprocessing/OutputPass.js";
+const R=new THREE.WebGLRenderer({antialias:!Q.low,powerPreference:"high-performance"});
+R.setPixelRatio(Q.pr);R.setSize(innerWidth,innerHeight);document.body.prepend(R.domElement);
+const composer=new EffectComposer(R);composer.setPixelRatio(Q.pr);
+function lowerPR(){if(Q.pr<=.6)return;Q.pr=Math.max(.6,Q.pr*.8);R.setPixelRatio(Q.pr);composer.setPixelRatio(Q.pr);composer.setSize(innerWidth,innerHeight)}
+function onResize(cam){addEventListener("resize",()=>{if(cam.isPerspectiveCamera){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}R.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight)})}
+R.toneMapping=THREE.ACESFilmicToneMapping;
+const scene=new THREE.Scene();const FOG=new THREE.Color(0x1a0e14);scene.fog=new THREE.FogExp2(FOG,.028);scene.background=FOG;
+const cam=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,200);cam.position.set(0,2.2,innerWidth<innerHeight?16:12);onResize(cam);
+scene.add(new THREE.HemisphereLight(0xffccaa,0x101018,.9));const key=new THREE.DirectionalLight(0xffb070,1.5);scene.add(key);
+// 太阳
+const sunMat=new THREE.MeshBasicMaterial({color:0xffe0a0,fog:false});const sun=new THREE.Mesh(new THREE.SphereGeometry(3.2,32,16),sunMat);sun.position.set(0,5,-30);scene.add(sun);
+// 遮挡物：神殿柱廊 + 浮空石块 + 旋转圆环
+const stone=new THREE.MeshStandardMaterial({color:0x3a3036,roughness:.9,flatShading:true});const occ=[];
+function O(g,x,y,z){const m=new THREE.Mesh(g,stone);m.position.set(x,y,z);scene.add(m);occ.push(m);return m}
+for(let i=-4;i<=4;i++){if(i==0)continue;const z=-10-Math.abs(i)*.6;O(new THREE.CylinderGeometry(.45,.55,9,10),i*2.2,2.5,z);O(new THREE.BoxGeometry(1.3,.4,1.3),i*2.2,7.1,z);O(new THREE.BoxGeometry(1.3,.4,1.3),i*2.2,-1.9,z)}
+O(new THREE.BoxGeometry(22,.8,2),0,7.6,-11.5);
+const ring=O(new THREE.TorusGeometry(4.2,.35,8,40),0,5,-18);const ring2=O(new THREE.TorusGeometry(3,.22,6,6),0,5,-17);
+const floats=[];for(let i=0;i<14;i++){const m=O(new THREE.DodecahedronGeometry(.3+Math.random()*.7,0),(Math.random()-.5)*16,Math.random()*7,-6-Math.random()*14);m.userData.p=Math.random()*6;floats.push(m)}
+for(let i=0;i<40;i++){O(new THREE.ConeGeometry(.6+Math.random(),2+Math.random()*2.5,6),(Math.random()-.5)*44,-1.5,-24-Math.random()*10)}
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:0x201820,roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.y=-2.1;scene.add(ground);occ.push(ground);
+// 光中漂浮的尘埃
+const DN=Math.round(700*Q.n),dp=new Float32Array(DN*3);for(let i=0;i<DN;i++)dp.set([(Math.random()-.5)*20,Math.random()*9-1.5,-Math.random()*16+2],i*3);
+const dg=new THREE.BufferGeometry();dg.setAttribute("position",new THREE.BufferAttribute(dp,3));
+const dust=new THREE.Points(dg,new THREE.PointsMaterial({color:0xffd8a0,size:.035,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false}));scene.add(dust);
+// 遮挡缓冲：光源白、其余黑
+const occRT=new THREE.WebGLRenderTarget(256,256);const black=new THREE.MeshBasicMaterial({color:0});const sunScene=new THREE.Scene();const sun2=new THREE.Mesh(sun.geometry,new THREE.MeshBasicMaterial({color:0xffffff}));sunScene.add(sun2);
+const glowSpr=new THREE.Mesh(new THREE.PlaneGeometry(20,20),new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{c:{value:new THREE.Color(0xffd090)}},vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",fragmentShader:"varying vec2 vUv;uniform vec3 c;void main(){float d=length(vUv-.5)*2.;gl_FragColor=vec4(c,pow(max(0.,1.-d),2.2)*.9);}"}));sunScene.add(glowSpr);const glowMain=glowSpr.clone();glowMain.material=glowSpr.material.clone();glowMain.material.uniforms=THREE.UniformsUtils.clone(glowSpr.material.uniforms);glowMain.material.uniforms.c=glowSpr.material.uniforms.c;glowMain.scale.setScalar(1.6);scene.add(glowMain);
+function occSize(){const s=new THREE.Vector2();R.getDrawingBufferSize(s);occRT.setSize(Math.max(128,s.x/2|0),Math.max(128,s.y/2|0))}occSize();addEventListener("resize",occSize);
+composer.addPass(new RenderPass(scene,cam));
+const god=new ShaderPass({uniforms:{tDiffuse:{value:null},tOcc:{value:null},lp:{value:new THREE.Vector2(.5,.6)},col:{value:new THREE.Color(0xffc890)},on:{value:1},dens:{value:.95}},
+ vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}",
+ fragmentShader:`uniform sampler2D tDiffuse,tOcc;uniform vec2 lp;uniform vec3 col;uniform float on,dens;varying vec2 vUv;
+ void main(){vec4 base=texture2D(tDiffuse,vUv);if(on<.5){gl_FragColor=base;return;}
+  const int S=${Q.low?40:64};vec2 d=(vUv-lp)*dens/float(S);vec2 uv=vUv;float il=1.,acc=0.;float j=fract(sin(dot(vUv,vec2(12.9,78.2)))*43758.5);uv-=d*j;
+  for(int i=0;i<S;i++){uv-=d;acc+=texture2D(tOcc,uv).r*il;il*=.985;}
+  gl_FragColor=vec4(base.rgb+col*acc/float(S)*1.3,1.);}`});
+god.uniforms.tOcc.value=occRT.texture;composer.addPass(god);const bloom=new UnrealBloomPass(new THREE.Vector2(256,256),.75,.6,.6);composer.addPass(bloom);composer.addPass(new OutputPass());
+const PAL=[[0xffe0a0,0xffc890,0x1a0e14,0xffb070],[0xdde8ff,0x9ab8ff,0x070b18,0x8aa0ff],[0xfff4d0,0xffe8a0,0x0f0c08,0xffe0a0]];
+document.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{const p=PAL[+b.dataset.c];sunMat.color.setHex(p[0]);god.uniforms.col.value.setHex(p[1]);glowSpr.material.uniforms.c.value.setHex(p[1]);FOG.setHex(p[2]);key.color.setHex(p[3]);document.querySelectorAll("[data-c]").forEach(x=>x.classList.toggle("on",x==b))});
+const gb=document.getElementById("gr"),bb=document.getElementById("bl");gb.onclick=()=>{god.uniforms.on.value^=1;gb.classList.toggle("on")};bb.onclick=()=>{bloom.enabled=!bloom.enabled;bb.classList.toggle("on")};
+let tx=0,ty=5;addEventListener("pointermove",e=>{tx=(e.clientX/innerWidth-.5)*16;ty=8-(e.clientY/innerHeight)*9});addEventListener("pointerdown",e=>{tx=(e.clientX/innerWidth-.5)*16;ty=8-(e.clientY/innerHeight)*9});
+const clk=new THREE.Clock(),v=new THREE.Vector3();let t=0;
+(function f(){requestAnimationFrame(f);perfTick(()=>{lowerPR();occSize()});const dt=Math.min(.05,clk.getDelta());t+=dt;
+ if(DEMO){tx=Math.sin(t*.35)*6;ty=4+Math.cos(t*.27)*2}
+ sun.position.x+=(tx-sun.position.x)*.05;sun.position.y+=(ty-sun.position.y)*.05;sun2.position.copy(sun.position);glowSpr.position.copy(sun.position);glowSpr.lookAt(cam.position);glowMain.position.copy(sun.position).add(new THREE.Vector3(0,0,.5));glowMain.lookAt(cam.position);key.position.copy(sun.position);
+ ring.rotation.y=t*.4;ring.rotation.x=Math.sin(t*.3)*.4;ring2.rotation.z=t*.7;ring2.rotation.y=-t*.5;floats.forEach(m=>{m.position.y+=Math.sin(t+m.userData.p)*.004;m.rotation.x+=dt*.3;m.rotation.y+=dt*.2});
+ dust.rotation.y=Math.sin(t*.05)*.1;cam.position.x=Math.sin(t*.1)*1.2;cam.lookAt(0,3,-10);
+ // 渲染遮挡缓冲
+ const fog=scene.fog,bg=scene.background;scene.fog=null;scene.background=null;R.setRenderTarget(occRT);R.setClearColor(0,1);R.clear();R.render(sunScene,cam);
+ scene.overrideMaterial=black;dust.visible=false;sun.visible=false;glowMain.visible=false;R.autoClear=false;R.render(scene,cam);R.autoClear=true;scene.overrideMaterial=null;dust.visible=true;sun.visible=true;glowMain.visible=true;R.setRenderTarget(null);scene.fog=fog;scene.background=bg;
+ v.copy(sun.position).project(cam);god.uniforms.lp.value.set(v.x*.5+.5,v.y*.5+.5);composer.render()})();
+</script></body></html>

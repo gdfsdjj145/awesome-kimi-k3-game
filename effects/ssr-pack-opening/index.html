@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>SSR 传说级开包动画 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}canvas{display:block}
+#fps{position:fixed;right:8px;bottom:8px;font:11px monospace;color:#8f8;background:#0008;padding:2px 6px;border-radius:4px;z-index:99;pointer-events:none}
+.hud{position:fixed;top:10px;left:10px;right:10px;z-index:10;font-size:13px;line-height:1.6;pointer-events:none;text-shadow:0 1px 3px #000}
+.hud b{font-size:15px}.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.hud button,.btn{pointer-events:auto;background:#ffffff1c;color:#fff;border:1px solid #ffffff45;border-radius:999px;padding:6px 12px;font-size:13px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;font-family:inherit}
+.hud button.on{background:#ffffffd8;color:#000}.tip{opacity:.75;font-size:12px}
+</style>
+<style>
+#card{position:fixed;left:50%;top:52%;width:min(62vw,250px);aspect-ratio:63/88;margin-left:calc(min(62vw,250px)/-2);transform:translateY(-50%);perspective:1000px;z-index:5;pointer-events:none;opacity:0}
+#flip{position:absolute;inset:0;transform-style:preserve-3d}
+.face{position:absolute;inset:0;border-radius:14px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden}
+.back{background:repeating-linear-gradient(45deg,#2a1a5a 0 10px,#3a2478 10px 20px);border:6px solid #c9a24a;display:flex;align-items:center;justify-content:center;font-size:56px}
+.front{transform:rotateY(180deg);border:8px solid;border-image:linear-gradient(135deg,#fff6c8,#c48a1c,#fff2b0,#8a5a10) 1;border-radius:6px}
+.front canvas{width:100%;height:100%;display:block}
+.front .sh{position:absolute;inset:0;mix-blend-mode:color-dodge;background:linear-gradient(115deg,transparent 30%,#ff00aa55 42%,#ffee0088 50%,#00ffcc55 58%,transparent 70%);background-size:250% 250%;animation:sh 2.4s linear infinite}
+@keyframes sh{from{background-position:120% 0}to{background-position:-120% 0}}
+.front .nm{position:absolute;left:10px;right:10px;bottom:10px;background:#000a;border-radius:6px;padding:6px 8px;font-weight:800;letter-spacing:.1em}.front .nm small{display:block;font-size:11px;font-weight:400;opacity:.8}
+#again{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:12;font-size:16px;padding:11px 28px;background:linear-gradient(#ffd56b,#e08a12);border:none;color:#3a2000;font-weight:800;box-shadow:0 0 22px #ffb000;display:none}
+</style></head><body><canvas id="c"></canvas>
+<div id="card"><div id="flip"><div class="face back">✦</div><div class="face front"><canvas id="art" width="252" height="352"></canvas><div class="sh"></div><div class="nm" id="nm"></div></div></div></div>
+<div class="hud"><b>🎴 SSR 传说级开包</b><div class="tip">点击卡包开启：蓄力震动 → 裂光 → 爆开 → 稀有度揭示 → 翻卡</div>
+<div class="btns"><button id="force" class="on">必出 SSR</button><span class="tip" id="stat"></span></div></div>
+<button id="again" class="btn">再开一包</button>
+<script>
+const P=new URLSearchParams(location.search),DEMO=P.has("demo"),FT=P.has("t")?+P.get("t"):null;
+const Q=(()=>{const coarse=matchMedia("(pointer:coarse)").matches,small=Math.min(innerWidth,innerHeight)<700,weak=(navigator.hardwareConcurrency||8)<=4,low=coarse||small||weak;return{low,pr:Math.min(devicePixelRatio||1,2),n:low?.5:1}})();
+const fpsEl=document.createElement("div");fpsEl.id="fps";document.body.appendChild(fpsEl);
+window.__fps=0;let __fc=0,__ft=performance.now(),__lc=0;
+function perfTick(onLow){__fc++;const n=performance.now();if(n-__ft>=1000){window.__fps=Math.round(__fc*1000/(n-__ft));__fc=0;__ft=n;fpsEl.textContent=window.__fps+" FPS"+(Q.low?" · 省电档":"");if(window.__fps<40&&onLow&&++__lc>=2){__lc=0;onLow()}}}
+const c=document.getElementById("c"),x=c.getContext("2d");let W,H,DPR;
+function rs(){DPR=Math.min(Q.pr,Q.low?1.5:2);W=innerWidth;H=innerHeight;c.width=W*DPR;c.height=H*DPR;c.style.width=W+"px";c.style.height=H+"px"}rs();addEventListener("resize",rs);
+const R=(a,b)=>a+Math.random()*(b-a),TAU=Math.PI*2,cl=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)),ease=k=>1-Math.pow(1-cl(k),3);
+const RAR={SSR:{c:["#fff3b0","#ffc400","#ff7a00"],rain:1,n:"苍穹龙皇",e:"🐉",s:"SSR · 传说",bg:["#1d3b8a","#6a2ca8"]},SR:{c:["#f0d6ff","#b45cff","#6a1ccf"],n:"星辉魔女",e:"🧙‍♀️",s:"SR · 史诗",bg:["#3a1650","#c2408a"]},R:{c:["#d6f0ff","#4db2ff","#1a5acf"],n:"钢铁守卫",e:"🛡️",s:"R · 稀有",bg:["#2a3440","#7a8a9a"]}};
+let force=true,tt=-1,rar="SSR",parts=[],pieces=[],stats={SSR:0,SR:0,R:0};
+const fb=document.getElementById("force");fb.onclick=e=>{e.stopPropagation();force=!force;fb.classList.toggle("on",force)};
+const card=document.getElementById("card"),flip=document.getElementById("flip"),again=document.getElementById("again");
+function drawArt(r){const cv=document.getElementById("art"),g=cv.getContext("2d"),d=RAR[r];const gr=g.createLinearGradient(0,0,252,352);gr.addColorStop(0,d.bg[0]);gr.addColorStop(1,d.bg[1]);g.fillStyle=gr;g.fillRect(0,0,252,352);
+ for(let i=0;i<14;i++){g.strokeStyle=`rgba(255,255,255,${.04+i*.006})`;g.lineWidth=2;g.beginPath();g.arc(126,150,20+i*14,0,7);g.stroke()}g.font="110px serif";g.textAlign="center";g.textBaseline="middle";g.shadowColor="#fff8";g.shadowBlur=24;g.fillText(d.e,126,150);g.shadowBlur=0;
+ document.getElementById("nm").innerHTML=`${d.n}<small>${d.s}</small>`}
+function start(){if(tt>=0&&tt<4)return;const r=Math.random();rar=force?"SSR":r<.08?"SSR":r<.3?"SR":"R";stats[rar]++;document.getElementById("stat").textContent=`SSR ${stats.SSR} · SR ${stats.SR} · R ${stats.R}`;drawArt(rar);tt=0;parts=[];pieces=[];again.style.display="none";spawned=false}
+let spawned=false;
+c.addEventListener("pointerdown",start);again.onclick=start;
+function spawnBurst(){spawned=true;const d=RAR[rar],n=Math.round((rar=="SSR"?900:400)*Q.n);for(let i=0;i<n;i++){const a=R(0,TAU),s=R(100,rar=="SSR"?1100:700);parts.push({x:W/2,y:H*.52,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:R(.8,2.2),c:d.rain&&Math.random()<.4?`hsl(${R(0,360)},100%,70%)`:d.c[Math.random()*3|0],s:R(1.5,4)})}
+ for(let i=0;i<14;i++){const a=R(0,TAU);pieces.push({x:W/2+R(-60,60),y:H*.52+R(-80,80),vx:Math.cos(a)*R(200,600),vy:Math.sin(a)*R(200,600)-200,r:R(0,6),vr:R(-10,10),w:R(20,50),h:R(20,60)})}}
+const PW=()=>Math.min(W*.5,200),PH=()=>PW()*1.45;
+function pack(cx,cy,k,shakeK,d){const w=PW(),h=PH();x.save();x.translate(cx+R(-1,1)*shakeK*14,cy+R(-1,1)*shakeK*14);x.rotate(R(-1,1)*shakeK*.06);
+ const gr=x.createLinearGradient(-w/2,-h/2,w/2,h/2);gr.addColorStop(0,"#3b2a7a");gr.addColorStop(.5,"#8a5ad8");gr.addColorStop(1,"#2a1a5a");x.fillStyle=gr;x.beginPath();x.roundRect(-w/2,-h/2,w,h,14);x.fill();
+ const sh=(performance.now()/1000*.4)%1;const sg=x.createLinearGradient(-w/2+sh*w*2-w,0,-w/2+sh*w*2,h);sg.addColorStop(0,"transparent");sg.addColorStop(.5,"#ffffff40");sg.addColorStop(1,"transparent");x.fillStyle=sg;x.fill();
+ x.strokeStyle="#f5d27a";x.lineWidth=3;x.stroke();x.fillStyle="#ffe6a0";x.font=`bold ${w*.13}px system-ui`;x.textAlign="center";x.fillText("传说卡包",0,-h*.05);x.font=`${w*.07}px system-ui`;x.fillText("LEGEND PACK",0,h*.06);
+ x.font=`${w*.3}px serif`;x.fillText("✦",0,h*.35);
+ // 裂光
+ if(k>0){x.globalCompositeOperation="lighter";x.strokeStyle=d.c[0];x.shadowColor=d.c[1];x.shadowBlur=20;x.lineWidth=2+k*3;const n=Math.floor(k*9);let sd=7;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};
+  for(let i=0;i<n;i++){x.beginPath();let px=0,py=0;x.moveTo(0,0);const a=rnd()*TAU;for(let j=0;j<5;j++){px+=Math.cos(a+(rnd()-.5))*w*.12;py+=Math.sin(a+(rnd()-.5))*h*.1;x.lineTo(px,py)}x.stroke()}
+  x.shadowBlur=0;const gg=x.createRadialGradient(0,0,0,0,0,w*1.4);gg.addColorStop(0,d.c[0]+"");gg.addColorStop(.3,d.c[1]+"88");gg.addColorStop(1,"transparent");x.globalAlpha=k*.9;x.fillStyle=gg;x.fillRect(-w*1.5,-h*1.5,w*3,h*3);x.globalAlpha=1;x.globalCompositeOperation="source-over"}
+ x.restore()}
+let last=performance.now(),idle=0;if(FT!==null){start();tt=FT}else if(DEMO)setTimeout(start,400);
+function loop(now){requestAnimationFrame(loop);perfTick(()=>{if(Q.n>.3)Q.n*=.75});const dt=Math.min(.05,(now-last)/1000);last=now;idle+=dt;if(tt>=0&&FT===null)tt+=dt;
+ const d=RAR[rar],T=tt;const cx=W/2,cy=H*.52;
+ x.setTransform(DPR,0,0,DPR,0,0);const bg=x.createRadialGradient(cx,cy,0,cx,cy,Math.max(W,H)*.75);bg.addColorStop(0,"#1c1638");bg.addColorStop(1,"#05040a");x.fillStyle=bg;x.fillRect(0,0,W,H);
+ // 旋转光芒
+ const rayK=T<1.2?0:cl((T-1.2)*2)*(T>5?.6:1);if(rayK>0||T<0){x.save();x.translate(cx,cy);x.rotate(idle*.25);x.globalCompositeOperation="lighter";const n=d.rain?24:14,L=Math.hypot(W,H);for(let i=0;i<n;i++){x.rotate(TAU/n);const g=x.createLinearGradient(0,0,L*.6,0);g.addColorStop(0,d.rain?`hsla(${i*360/n+idle*60},100%,70%,${.35*rayK})`:d.c[1]+"55");g.addColorStop(1,"transparent");x.fillStyle=g;x.globalAlpha=T<0?.15:1;x.beginPath();x.moveTo(0,0);x.lineTo(L*.6,-L*.06);x.lineTo(L*.6,L*.06);x.fill()}x.restore();x.globalAlpha=1;x.globalCompositeOperation="source-over"}
+ if(T<1.2){const k=T<0?0:ease(T/1.2);pack(cx,cy+(T<0?Math.sin(idle*2)*8:0),k,T<0?0:Math.pow(k,2),d);if(T<0){x.fillStyle="#fff";x.globalAlpha=.6+.4*Math.sin(idle*4);x.font="15px system-ui";x.textAlign="center";x.fillText("点击开启",cx,cy+PH()/2+40);x.globalAlpha=1}}
+ else if(!spawned)spawnBurst();
+ // 冲击环
+ if(T>1.2&&T<2.2){const k=(T-1.2);x.save();x.globalCompositeOperation="lighter";for(let i=0;i<3;i++){const r=(k-i*.08)*Math.max(W,H)*1.1;if(r<=0)continue;x.strokeStyle=d.c[i];x.globalAlpha=cl(1-k);x.lineWidth=20*(1-k)+2;x.beginPath();x.arc(cx,cy,r,0,TAU);x.stroke()}x.restore();x.globalAlpha=1}
+ // 粒子
+ x.globalCompositeOperation="lighter";for(const p of parts){if(FT===null){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.95;p.vy=p.vy*.95+60*dt;p.l-=dt}x.globalAlpha=cl(p.l);x.fillStyle=p.c;x.fillRect(p.x,p.y,p.s,p.s)}x.globalAlpha=1;x.globalCompositeOperation="source-over";parts=parts.filter(p=>p.l>0);
+ if(FT!==null&&spawned&&!loop.adv){loop.adv=1;for(const p of parts){const k=(T-1.2)*.9;p.x+=p.vx*k*.5;p.y+=p.vy*k*.5}for(const p of pieces){p.x+=p.vx*(T-1.2)*.6;p.y+=p.vy*(T-1.2)*.6}}
+ for(const p of pieces){if(FT===null){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=900*dt;p.r+=p.vr*dt}x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle="#6a44b8";x.fillRect(-p.w/2,-p.h/2,p.w,p.h);x.strokeStyle="#f5d27a";x.strokeRect(-p.w/2,-p.h/2,p.w,p.h);x.restore()}
+ // 稀有度文字
+ if(T>1.35&&T<3.4){const k=T-1.35,s=k<.2?3-k/.2*2:1+Math.sin(k*3)*.03;x.save();x.translate(cx,H*.2);x.scale(s,s);x.globalAlpha=cl(k*5)*cl((3.4-T)*3);x.textAlign="center";x.textBaseline="middle";x.font=`italic 900 ${Math.min(W*.22,120)}px system-ui`;
+  const g=x.createLinearGradient(0,-50,0,50);if(d.rain){g.addColorStop(0,"#fff");g.addColorStop(.4,"#ffe46b");g.addColorStop(.7,"#ff8a00");g.addColorStop(1,"#ff3d7a")}else{g.addColorStop(0,"#fff");g.addColorStop(1,d.c[1])}x.shadowColor=d.c[1];x.shadowBlur=40;x.fillStyle=g;x.fillText(rar,0,0);x.shadowBlur=0;x.lineWidth=2;x.strokeStyle="#fff";x.strokeText(rar,0,0);x.restore();x.globalAlpha=1}
+ // 闪白
+ const fl=T>1.2?Math.exp(-(T-1.2)*6):T>=0?Math.pow(cl(T/1.2),6)*.5:0;const fl2=T>2.9?Math.exp(-(T-2.9)*8)*.7:0;if(fl+fl2>.01){x.fillStyle="#fff";x.globalAlpha=cl(fl+fl2);x.fillRect(0,0,W,H);x.globalAlpha=1}
+ // 卡牌（DOM）：下落 → 翻面
+ if(T>2){const k=ease((T-2)/.6),f=cl((T-2.7)/.35);card.style.opacity=cl((T-2)*4);card.style.transform=`translateY(${-50+(1-k)*-60}%) scale(${.6+.4*k})`;flip.style.transform=`rotateY(${f*180}deg) rotateX(${Math.sin(idle*1.2)*6*f}deg)`;card.style.filter=`drop-shadow(0 0 ${20+Math.sin(idle*3)*8}px ${d.c[1]})`}else{card.style.opacity=0}
+ if(T>3.6&&again.style.display=="none"&&FT===null)again.style.display="block";
+ if(DEMO&&T>6.5&&FT===null)start()}
+requestAnimationFrame(loop);
+</script></body></html>

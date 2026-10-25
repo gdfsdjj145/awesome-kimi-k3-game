@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>黑洞与传送门 · 参考实现</title>
+<style>*{margin:0;box-sizing:border-box}html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}canvas{display:block}
+#fps{position:fixed;right:8px;bottom:8px;font:11px monospace;color:#8f8;background:#0008;padding:2px 6px;border-radius:4px;z-index:99;pointer-events:none}
+.hud{position:fixed;top:10px;left:10px;right:10px;z-index:10;font-size:13px;line-height:1.6;pointer-events:none;text-shadow:0 1px 3px #000}
+.hud b{font-size:15px}.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.hud button,.btn{pointer-events:auto;background:#ffffff1c;color:#fff;border:1px solid #ffffff45;border-radius:999px;padding:6px 12px;font-size:13px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;font-family:inherit}
+.hud button.on{background:#ffffffd8;color:#000}.tip{opacity:.75;font-size:12px}
+</style>
+</head><body>
+<div class="hud"><b>🕳️ 黑洞 / 传送门</b><div class="tip">拖动移动位置 · 双指或滑条调整大小 · 全片元着色器实时计算引力透镜</div>
+<div class="btns"><button data-m="0" class="on">黑洞</button><button data-m="1">传送门</button><button data-m="2">虫洞</button><button id="pulse">吞噬脉冲</button>
+<label style="pointer-events:auto">质量 <input id="mass" type="range" min="0.4" max="1.6" step="0.01" value="1"></label></div></div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+const P=new URLSearchParams(location.search),DEMO=P.has("demo"),FT=P.has("t")?+P.get("t"):null;
+const Q=(()=>{const coarse=matchMedia("(pointer:coarse)").matches,small=Math.min(innerWidth,innerHeight)<700,weak=(navigator.hardwareConcurrency||8)<=4,low=coarse||small||weak;return{low,pr:Math.min(devicePixelRatio||1,2),n:low?.5:1}})();
+const fpsEl=document.createElement("div");fpsEl.id="fps";document.body.appendChild(fpsEl);
+window.__fps=0;let __fc=0,__ft=performance.now(),__lc=0;
+function perfTick(onLow){__fc++;const n=performance.now();if(n-__ft>=1000){window.__fps=Math.round(__fc*1000/(n-__ft));__fc=0;__ft=n;fpsEl.textContent=window.__fps+" FPS"+(Q.low?" · 省电档":"");if(window.__fps<40&&onLow&&++__lc>=2){__lc=0;onLow()}}}
+import * as THREE from "three";
+import {EffectComposer} from "three/addons/postprocessing/EffectComposer.js";
+import {RenderPass} from "three/addons/postprocessing/RenderPass.js";
+import {UnrealBloomPass} from "three/addons/postprocessing/UnrealBloomPass.js";
+import {ShaderPass} from "three/addons/postprocessing/ShaderPass.js";
+import {OutputPass} from "three/addons/postprocessing/OutputPass.js";
+const R=new THREE.WebGLRenderer({antialias:!Q.low,powerPreference:"high-performance"});
+R.setPixelRatio(Q.pr);R.setSize(innerWidth,innerHeight);document.body.prepend(R.domElement);
+const composer=new EffectComposer(R);composer.setPixelRatio(Q.pr);
+function lowerPR(){if(Q.pr<=.6)return;Q.pr=Math.max(.6,Q.pr*.8);R.setPixelRatio(Q.pr);composer.setPixelRatio(Q.pr);composer.setSize(innerWidth,innerHeight)}
+function onResize(cam){addEventListener("resize",()=>{if(cam.isPerspectiveCamera){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}R.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight)})}
+R.toneMapping=THREE.ACESFilmicToneMapping;const scene=new THREE.Scene(),cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);onResize(cam);
+const U={uT:{value:0},uRes:{value:new THREE.Vector2()},uC:{value:new THREE.Vector2(0,0)},uM:{value:1},uMode:{value:0},uPulse:{value:-1}};
+const mat=new THREE.ShaderMaterial({uniforms:U,vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}",
+fragmentShader:`precision highp float;uniform float uT,uM,uMode,uPulse;uniform vec2 uRes,uC;varying vec2 vUv;
+float h31(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+float vn(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x),mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x),f.y),mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x),mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y),f.z);}
+float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<5;i++){s+=a*vn(p);p=p*2.03+vec3(1.7,9.2,3.1);a*=.5;}return s;}
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+vec3 stars(vec2 d){vec3 c=vec3(0.);for(int i=0;i<3;i++){float s=float(i)*7.+30.;vec2 g=d*s*(1.+float(i)*.7),id=floor(g),f=fract(g)-.5;float h=h21(id+float(i)*13.);
+ vec2 o=vec2(h21(id+3.1),h21(id+7.7))-.5;float b=step(.86,h)*smoothstep(.09,0.,length(f-o*.7))*(.6+.4*sin(uT*3.+h*40.));c+=b*mix(vec3(1.,.8,.6),vec3(.6,.8,1.),h21(id+1.));}
+ float n=fbm(vec3(d*2.2,uT*.02));float n2=fbm(vec3(d*4.+5.,1.));
+ c+=vec3(.35,.12,.5)*pow(n,3.)*1.8+vec3(.05,.2,.45)*pow(n2,4.)*2.;return c;}
+vec3 world2(vec2 d){float n=fbm(vec3(d*3.,uT*.1));return mix(vec3(.05,.3,.25),vec3(.9,.95,.6),pow(n,2.))+stars(d*1.3+9.)*.6;}
+void main(){vec2 asp=vec2(uRes.x/uRes.y,1.);vec2 p=(vUv-.5)*asp*2.-uC*asp;float r=length(p);float rs=.16*uM;vec3 col;
+ float pulse=uPulse<0.?0.:exp(-pow((r-uPulse*1.6)*8.,2.))*(1.-uPulse);
+ if(uMode<.5){ // 黑洞：光线偏折 + 吸积盘 + 光子环
+  float bend=rs*rs*1.6/max(r*r,1e-4);vec2 dir=p/max(r,1e-4);vec2 q=p-dir*bend*.9;
+  col=r>rs*1.02?stars(q*.6+uT*.003)*smoothstep(rs,rs*1.6,r):vec3(0.);
+  // 吸积盘：倾斜椭圆平面
+  float tilt=.28;vec2 dp=vec2(p.x,p.y/tilt);float dr=length(dp);float ang=atan(dp.y,dp.x);
+  float inDisk=smoothstep(rs*1.4,rs*1.9,dr)*smoothstep(rs*5.5,rs*2.6,dr);
+  float sw=fbm(vec3(ang*3.+uT*(1.6/dr)*.25,dr*9.-uT*.6,1.));float dop=.6+.6*cos(ang-0.);
+  vec3 dc=mix(vec3(1.,.35,.05),vec3(1.,.9,.7),sw)*(.15+sw*.9)*(.35+dop*.8)*inDisk;
+  bool front=p.y<0.;float behind=step(rs*.98,r);
+  col+=dc*(front?1.:behind*(1.-smoothstep(rs*1.6,rs*1.0,r)*.0));
+  // 透镜化的盘背面：在黑洞上方形成光弧
+  float lens=exp(-pow((r-rs*1.55)*22.,2.))*(.5+.5*fbm(vec3(atan(p.y,p.x)*4.+uT*2.,1.,2.)));col+=vec3(1.,.6,.25)*lens*.8*step(0.,p.y+rs*.3);
+  col+=vec3(1.,.75,.4)*exp(-pow((r-rs*1.08)*55.,2.))*.9; // 光子环
+  if(r<rs)col*=smoothstep(rs*.85,rs,r)*0.;
+ } else if(uMode<1.5){ // 传送门：漩涡 + 另一侧世界
+  float R0=rs*2.4;float a=atan(p.y,p.x);float tw=a+uT*1.2+2.5/(r+.15);
+  float sp=fbm(vec3(cos(tw)*2.,sin(tw)*2.,r*6.-uT*1.5));
+  col=stars(p*.6)*smoothstep(R0*.95,R0*1.4,r);
+  float ring=smoothstep(R0*1.25,R0,r)*smoothstep(R0*.75,R0,r);
+  vec3 pc=mix(vec3(.1,.5,1.),vec3(.7,.2,1.),sp);col+=pc*ring*(.35+sp*.9)+vec3(.6,.9,1.)*exp(-pow((r-R0)*40.,2.))*.9;
+  if(r<R0){vec2 wq=p/(1.-r/R0*.6)+vec2(cos(uT*.2),sin(uT*.2))*.2;col=mix(col,world2(wq)*.7,smoothstep(R0,R0*.85,r));col=mix(col,pc*(.2+sp*sp*1.6),.65*smoothstep(R0*.15,R0*.95,r)*pow(abs(sin(tw*3.)),.5));}
+  // 火花
+  for(int i=0;i<24;i++){float fi=float(i),ph=fract(uT*.35+fi*.137);float aa=fi*2.4+uT*.6;vec2 sp2=vec2(cos(aa),sin(aa))*R0*(1.+ph*.8);col+=vec3(.6,.8,1.)*smoothstep(.012,0.,length(p-sp2))*(1.-ph)*2.;}
+ } else { // 虫洞：隧道
+  float a=atan(p.y,p.x)/6.2832;float z=.25/max(r,.02)+uT*.8;float n=fbm(vec3(a*8.,z*2.,1.));
+  vec3 tc=mix(vec3(.05,.1,.4),vec3(.9,.4,1.),n)*(n*1.25)*smoothstep(0.,.25,r);
+  float lines=pow(abs(sin(a*6.2832*12.+z*3.)),40.)*.18;col=tc+vec3(.6,.8,1.)*lines*r*2.+vec3(1.)*exp(-r*18.)*.8;
+  col=mix(col,stars(p),smoothstep(.9,1.6,r));
+ }
+ col+=vec3(.8,.6,1.)*pulse*1.5;col*=1.-.25*dot(vUv-.5,vUv-.5)*2.;
+ gl_FragColor=vec4(col,1.);}`});
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),mat));
+composer.addPass(new RenderPass(scene,cam));const bloom=new UnrealBloomPass(new THREE.Vector2(256,256),.55,.5,.6);composer.addPass(bloom);composer.addPass(new OutputPass());
+if(Q.low){Q.pr=Math.min(Q.pr,1.25);R.setPixelRatio(Q.pr);composer.setPixelRatio(Q.pr)}
+const mass=document.getElementById("mass");mass.oninput=()=>U.uM.value=+mass.value;
+document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{U.uMode.value=+b.dataset.m;document.querySelectorAll("[data-m]").forEach(x=>x.classList.toggle("on",x==b))});
+const md=P.get("mode");if(md)document.querySelector(`[data-m="${md}"]`).click();
+document.getElementById("pulse").onclick=()=>U.uPulse.value=0;
+let drag=false,tgt=new THREE.Vector2();const pts=new Map();let pinch0=0,m0=1;
+R.domElement.addEventListener("pointerdown",e=>{pts.set(e.pointerId,e);drag=true;mv(e);if(pts.size==2){const [a,b]=[...pts.values()];pinch0=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);m0=U.uM.value}});
+addEventListener("pointerup",e=>{pts.delete(e.pointerId);drag=pts.size>0});
+addEventListener("pointermove",e=>{if(pts.has(e.pointerId))pts.set(e.pointerId,e);if(pts.size==2){const [a,b]=[...pts.values()];U.uM.value=Math.max(.4,Math.min(1.6,m0*Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)/pinch0));mass.value=U.uM.value}else if(drag)mv(e)});
+function mv(e){tgt.set((e.clientX/innerWidth-.5)*2,-(e.clientY/innerHeight-.5)*2)}
+const clk=new THREE.Clock();
+(function f(){requestAnimationFrame(f);perfTick(lowerPR);const dt=Math.min(.05,clk.getDelta());U.uT.value=FT!==null?FT:U.uT.value+dt;
+ if(!drag&&DEMO&&FT===null)tgt.set(Math.sin(U.uT.value*.3)*.25,Math.cos(U.uT.value*.21)*.12);U.uC.value.lerp(tgt,.08);
+ if(U.uPulse.value>=0){U.uPulse.value+=dt*.8;if(U.uPulse.value>1)U.uPulse.value=-1}
+ composer.getSize?0:0;R.getDrawingBufferSize(U.uRes.value);composer.render()})();
+</script></body></html>
