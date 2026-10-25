@@ -5,7 +5,36 @@
 #p{position:fixed;top:12px;left:12px;background:#0008;padding:10px 14px;border-radius:10px;font-size:13px;line-height:2}
 #p button{margin:1px;padding:4px 10px;border-radius:6px;border:1px solid #666;background:#1b1f2b;color:#fff;cursor:pointer}#p button.on{background:#3b5bdb;border-color:#9bb0ff}
 input[type=range]{vertical-align:middle;width:120px}</style></head>
-<body><canvas id="c"></canvas><div id="p"><b>🌦️ 天气系统</b><br><span id="w"></span><br>强度 <input type="range" id="int" min="0.2" max="1.5" step="0.1" value="1"> 风 <input type="range" id="wind" min="-3" max="3" step="0.1" value="0.8"><br><label><input type="checkbox" id="cyc"> 自动循环天气</label></div>
+<body>
+<style id="fxkit-css">#fxbar{position:fixed;right:6px;bottom:6px;z-index:9999;display:flex;gap:4px;align-items:center;font:11px system-ui,sans-serif;color:#bfe;background:#000a;padding:3px 6px;border-radius:8px;-webkit-user-select:none;user-select:none}#fxbar button{font:11px system-ui,sans-serif;padding:2px 6px;border-radius:6px;border:1px solid #fff5;background:#fff2;color:#fff;cursor:pointer}#fxbar button.off{opacity:.45;text-decoration:line-through}.fxglow{position:fixed;left:0;top:0;pointer-events:none;mix-blend-mode:screen;transform-origin:0 0}</style>
+<script id="fxkit">/* 后期增强小工具：低分辨率辉光 + 关键时刻震屏 + 帧率自适应（第 5 轮追加） */
+(()=>{const P=new URLSearchParams(location.search),get=(k,d)=>{try{const v=localStorage.getItem(k);return v===null?d:v==="1"}catch(e){return d}},put=(k,v)=>{try{localStorage.setItem(k,v?"1":"0")}catch(e){}};
+const low=matchMedia("(pointer:coarse)").matches||Math.min(innerWidth,innerHeight)<700||(navigator.hardwareConcurrency||8)<=4;
+const FX=window.FX={low,glow:get("fx-glow",true)&&!P.has("noglow"),shakeOn:get("fx-shake",true)&&!P.has("noshake"),amp:0,fps:0,targets:[],shakeEl:null,onDegrade:null,div:low?5:4,
+ shake(a){if(FX.shakeOn)FX.amp=Math.min(28,Math.max(FX.amp,a))},
+ glowOf(cv,o={}){if(!cv)return;const g=document.createElement("canvas");const t={cv,g,gx:g.getContext("2d"),f:o.filter||"brightness(1.05) contrast(2.6) saturate(1.6)",op:o.op??.8,mode:o.mode||"inplace"};
+  if(t.mode=="overlay"){g.className="fxglow";g.style.zIndex=o.z||2;document.body.appendChild(g)}else t.ctx=cv.getContext("2d");FX.targets.push(t)}};
+const hasF=typeof document.createElement("canvas").getContext("2d").filter==="string";
+function mkBar(){const b=document.createElement("div");b.id="fxbar";b.innerHTML='<span id="fxfps">-- FPS</span><button id="fxg">✨辉光</button><button id="fxs">📳震屏</button>';document.body.appendChild(b);
+ const g=b.querySelector("#fxg"),s=b.querySelector("#fxs");const up=()=>{g.classList.toggle("off",!FX.glow);s.classList.toggle("off",!FX.shakeOn)};up();
+ g.onclick=e=>{e.stopPropagation();FX.glow=!FX.glow;put("fx-glow",FX.glow);up()};s.onclick=e=>{e.stopPropagation();FX.shakeOn=!FX.shakeOn;put("fx-shake",FX.shakeOn);if(!FX.shakeOn)FX.amp=0;up()};
+ ["pointerdown","touchstart","mousedown"].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));FX.bar=b;FX.fpsEl=b.querySelector("#fxfps")}
+let fc=0,ft=performance.now(),lowN=0;
+function tick(now){requestAnimationFrame(tick);fc++;if(now-ft>=1000){FX.fps=Math.round(fc*1000/(now-ft));window.__fps=FX.fps;fc=0;ft=now;if(FX.fpsEl)FX.fpsEl.textContent=FX.fps+" FPS"+(FX.low?" · 省电":"");
+  if(FX.fps<40){if(++lowN>=2){lowN=0;if(FX.div<8)FX.div+=2;if(FX.onDegrade)FX.onDegrade()}}else lowN=0}
+ const el=FX.shakeEl;if(el){if(FX.amp>.4&&FX.shakeOn){el.style.translate=`${((Math.random()-.5)*2*FX.amp).toFixed(1)}px ${((Math.random()-.5)*2*FX.amp).toFixed(1)}px`;FX.amp*=.86}else if(el.style.translate){FX.amp=0;el.style.translate=""}}
+}
+function post(){requestAnimationFrame(post);for(const t of FX.targets){if(t.mode=="overlay")t.g.style.display=FX.glow?"":"none";if(!FX.glow)continue;
+  const cw=t.cv.width,ch=t.cv.height;if(!cw||!ch)continue;const w=Math.max(1,Math.round(cw/FX.div)),h=Math.max(1,Math.round(ch/FX.div));if(t.g.width!==w||t.g.height!==h){t.g.width=w;t.g.height=h}
+  const x=t.gx;x.globalCompositeOperation="copy";if(hasF)x.filter=t.f;x.drawImage(t.cv,0,0,w,h);if(hasF)x.filter="none";
+  if(!hasF){const d=x.getImageData(0,0,w,h),a=d.data;for(let i=0;i<a.length;i+=4){const l=(a[i]*.3+a[i+1]*.59+a[i+2]*.11)/255,k=Math.max(0,(l-.55)/.45)*1.6;a[i]*=k;a[i+1]*=k;a[i+2]*=k}x.putImageData(d,0,0)}
+  if(t.mode=="overlay"){const r=t.cv.getBoundingClientRect(),st=t.g.style;st.transform=`translate(${r.left}px,${r.top}px)`;st.width=r.width+"px";st.height=r.height+"px";st.opacity=t.op}
+  else{const c=t.ctx;c.save();c.setTransform(1,0,0,1,0,0);c.globalCompositeOperation="lighter";c.globalAlpha=t.op;c.imageSmoothingEnabled=true;c.filter="none";c.drawImage(t.g,0,0,cw,ch);c.restore()}}}
+/* 辉光在游戏自己的绘制之后执行：页面加载完再注册 */
+addEventListener("load",()=>setTimeout(()=>requestAnimationFrame(post),50));
+if(document.body)mkBar();else addEventListener("DOMContentLoaded",mkBar);requestAnimationFrame(tick)})();
+</script>
+<canvas id="c"></canvas><div id="p"><b>🌦️ 天气系统</b><br><span id="w"></span><br>强度 <input type="range" id="int" min="0.2" max="1.5" step="0.1" value="1"> 风 <input type="range" id="wind" min="-3" max="3" step="0.1" value="0.8"><br><label><input type="checkbox" id="cyc"> 自动循环天气</label></div>
 <script>
 const c=document.getElementById("c"),x=c.getContext("2d");let W,H,G;function rs(){W=c.width=innerWidth;H=c.height=innerHeight;G=H*.78}rs();addEventListener("resize",rs);
 const WS={sunny:"☀️ 晴",cloudy:"☁️ 多云",rain:"🌧️ 雨",storm:"⛈️ 雷暴",snow:"❄️ 雪",fog:"🌫️ 雾",sakura:"🌸 樱花"};let w="rain";
@@ -34,7 +63,7 @@ function spawn(){const I=+document.getElementById("int").value,wind=+document.ge
  if(w=="rain"||w=="storm"){const n=(w=="storm"?14:8)*I;for(let i=0;i<n;i++)P.push({k:"r",x:R(-200,W+200),y:R(-50,0),vx:wind*2+(w=="storm"?2:0),vy:R(14,20),l:R(10,20)})}
  if(w=="snow"&&Math.random()<I)for(let i=0;i<3*I;i++)P.push({k:"s",x:R(-100,W+100),y:-10,vx:wind*.5,vy:R(.6,1.6),r:R(1,3.5),ph:R(0,7)});
  if(w=="sakura"&&Math.random()<.4*I)P.push({k:"p",x:R(-100,W),y:-10,vx:wind+R(.5,1.5),vy:R(.8,1.6),r:R(4,7),rot:R(0,7),vr:R(-.05,.05),ph:R(0,7)});
- if(w=="storm"&&Math.random()<.006*I){flash=1;bolt=mkBolt(R(W*.2,W*.9),0,G*.9)}}
+ if(w=="storm"&&Math.random()<.006*I){flash=1;FX.shake(9);bolt=mkBolt(R(W*.2,W*.9),0,G*.9)}}
 function mkBolt(x0,y0,y1){const pts=[[x0,y0]];let X=x0,Y=y0;while(Y<y1){X+=R(-30,30);Y+=R(15,40);pts.push([X,Y]);if(Math.random()<.15)pts.push(null,[X,Y])}return{pts,l:1}}
 function update(){t++;spawn();if(w=="snow")snowAcc=Math.min(1,snowAcc+.0006);else snowAcc=Math.max(0,snowAcc-.002);
  for(const p of P){if(p.k=="s"){p.ph+=.03;p.x+=p.vx+Math.sin(p.ph)*.6;p.y+=p.vy}else if(p.k=="p"){p.ph+=.04;p.x+=p.vx+Math.sin(p.ph);p.y+=p.vy+Math.cos(p.ph)*.4;p.rot+=p.vr}else{p.x+=p.vx;p.y+=p.vy}
@@ -50,4 +79,5 @@ function draw(){sky();ground();
  if(fog>.02){for(let i=0;i<4;i++){const g=x.createLinearGradient(0,G-200+i*40,0,H);g.addColorStop(0,"rgba(220,225,235,0)");g.addColorStop(.4,`rgba(220,225,235,${fog*.35})`);g.addColorStop(1,`rgba(220,225,235,${fog*.5})`);x.fillStyle=g;x.fillRect(Math.sin(t*.003+i)*80-100,0,W+200,H)}}
  if(cl>.5&&w!="sakura"){x.fillStyle=`rgba(10,15,30,${(cl-.5)*.5})`;x.fillRect(0,0,W,H)}}
 let cycT=0;(function loop(){update();draw();if(document.getElementById("cyc").checked&&++cycT%600==0){const ks=Object.keys(WS);set(ks[(ks.indexOf(w)+1)%ks.length])}requestAnimationFrame(loop)})();
-</script></body></html>
+</script><script>/* 第 5 轮：挂载辉光与震屏 */FX.glowOf(document.getElementById("c"),{"op": 0.45, "filter": "brightness(.72) contrast(4.5) saturate(1.3)"});FX.shakeEl=document.getElementById("c");</script>
+</body></html>

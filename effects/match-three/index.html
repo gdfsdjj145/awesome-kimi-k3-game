@@ -5,7 +5,36 @@
 #top{display:flex;gap:18px;margin-bottom:12px;font-size:17px;background:#0003;padding:8px 18px;border-radius:999px}
 canvas{border-radius:18px;background:#ffffff22;box-shadow:0 10px 40px #0004;touch-action:none}
 button{margin-top:12px;padding:8px 22px;border:none;border-radius:999px;background:#fff;color:#7b4dff;font-size:15px;cursor:pointer}</style></head>
-<body><div id="top"><span id="sc"></span><span id="mv"></span><span id="cb"></span></div><canvas id="c" width="480" height="480"></canvas><button id="re">重新开始</button>
+<body>
+<style id="fxkit-css">#fxbar{position:fixed;right:6px;bottom:6px;z-index:9999;display:flex;gap:4px;align-items:center;font:11px system-ui,sans-serif;color:#bfe;background:#000a;padding:3px 6px;border-radius:8px;-webkit-user-select:none;user-select:none}#fxbar button{font:11px system-ui,sans-serif;padding:2px 6px;border-radius:6px;border:1px solid #fff5;background:#fff2;color:#fff;cursor:pointer}#fxbar button.off{opacity:.45;text-decoration:line-through}.fxglow{position:fixed;left:0;top:0;pointer-events:none;mix-blend-mode:screen;transform-origin:0 0}</style>
+<script id="fxkit">/* 后期增强小工具：低分辨率辉光 + 关键时刻震屏 + 帧率自适应（第 5 轮追加） */
+(()=>{const P=new URLSearchParams(location.search),get=(k,d)=>{try{const v=localStorage.getItem(k);return v===null?d:v==="1"}catch(e){return d}},put=(k,v)=>{try{localStorage.setItem(k,v?"1":"0")}catch(e){}};
+const low=matchMedia("(pointer:coarse)").matches||Math.min(innerWidth,innerHeight)<700||(navigator.hardwareConcurrency||8)<=4;
+const FX=window.FX={low,glow:get("fx-glow",true)&&!P.has("noglow"),shakeOn:get("fx-shake",true)&&!P.has("noshake"),amp:0,fps:0,targets:[],shakeEl:null,onDegrade:null,div:low?5:4,
+ shake(a){if(FX.shakeOn)FX.amp=Math.min(28,Math.max(FX.amp,a))},
+ glowOf(cv,o={}){if(!cv)return;const g=document.createElement("canvas");const t={cv,g,gx:g.getContext("2d"),f:o.filter||"brightness(1.05) contrast(2.6) saturate(1.6)",op:o.op??.8,mode:o.mode||"inplace"};
+  if(t.mode=="overlay"){g.className="fxglow";g.style.zIndex=o.z||2;document.body.appendChild(g)}else t.ctx=cv.getContext("2d");FX.targets.push(t)}};
+const hasF=typeof document.createElement("canvas").getContext("2d").filter==="string";
+function mkBar(){const b=document.createElement("div");b.id="fxbar";b.innerHTML='<span id="fxfps">-- FPS</span><button id="fxg">✨辉光</button><button id="fxs">📳震屏</button>';document.body.appendChild(b);
+ const g=b.querySelector("#fxg"),s=b.querySelector("#fxs");const up=()=>{g.classList.toggle("off",!FX.glow);s.classList.toggle("off",!FX.shakeOn)};up();
+ g.onclick=e=>{e.stopPropagation();FX.glow=!FX.glow;put("fx-glow",FX.glow);up()};s.onclick=e=>{e.stopPropagation();FX.shakeOn=!FX.shakeOn;put("fx-shake",FX.shakeOn);if(!FX.shakeOn)FX.amp=0;up()};
+ ["pointerdown","touchstart","mousedown"].forEach(t=>b.addEventListener(t,e=>e.stopPropagation()));FX.bar=b;FX.fpsEl=b.querySelector("#fxfps")}
+let fc=0,ft=performance.now(),lowN=0;
+function tick(now){requestAnimationFrame(tick);fc++;if(now-ft>=1000){FX.fps=Math.round(fc*1000/(now-ft));window.__fps=FX.fps;fc=0;ft=now;if(FX.fpsEl)FX.fpsEl.textContent=FX.fps+" FPS"+(FX.low?" · 省电":"");
+  if(FX.fps<40){if(++lowN>=2){lowN=0;if(FX.div<8)FX.div+=2;if(FX.onDegrade)FX.onDegrade()}}else lowN=0}
+ const el=FX.shakeEl;if(el){if(FX.amp>.4&&FX.shakeOn){el.style.translate=`${((Math.random()-.5)*2*FX.amp).toFixed(1)}px ${((Math.random()-.5)*2*FX.amp).toFixed(1)}px`;FX.amp*=.86}else if(el.style.translate){FX.amp=0;el.style.translate=""}}
+}
+function post(){requestAnimationFrame(post);for(const t of FX.targets){if(t.mode=="overlay")t.g.style.display=FX.glow?"":"none";if(!FX.glow)continue;
+  const cw=t.cv.width,ch=t.cv.height;if(!cw||!ch)continue;const w=Math.max(1,Math.round(cw/FX.div)),h=Math.max(1,Math.round(ch/FX.div));if(t.g.width!==w||t.g.height!==h){t.g.width=w;t.g.height=h}
+  const x=t.gx;x.globalCompositeOperation="copy";if(hasF)x.filter=t.f;x.drawImage(t.cv,0,0,w,h);if(hasF)x.filter="none";
+  if(!hasF){const d=x.getImageData(0,0,w,h),a=d.data;for(let i=0;i<a.length;i+=4){const l=(a[i]*.3+a[i+1]*.59+a[i+2]*.11)/255,k=Math.max(0,(l-.55)/.45)*1.6;a[i]*=k;a[i+1]*=k;a[i+2]*=k}x.putImageData(d,0,0)}
+  if(t.mode=="overlay"){const r=t.cv.getBoundingClientRect(),st=t.g.style;st.transform=`translate(${r.left}px,${r.top}px)`;st.width=r.width+"px";st.height=r.height+"px";st.opacity=t.op}
+  else{const c=t.ctx;c.save();c.setTransform(1,0,0,1,0,0);c.globalCompositeOperation="lighter";c.globalAlpha=t.op;c.imageSmoothingEnabled=true;c.filter="none";c.drawImage(t.g,0,0,cw,ch);c.restore()}}}
+/* 辉光在游戏自己的绘制之后执行：页面加载完再注册 */
+addEventListener("load",()=>setTimeout(()=>requestAnimationFrame(post),50));
+if(document.body)mkBar();else addEventListener("DOMContentLoaded",mkBar);requestAnimationFrame(tick)})();
+</script>
+<div id="top"><span id="sc"></span><span id="mv"></span><span id="cb"></span></div><canvas id="c" width="480" height="480"></canvas><button id="re">重新开始</button>
 <script>
 const c=document.getElementById("c"),x=c.getContext("2d"),N=8,S=60,GEMS=["🍎","🍋","🍇","🍀","💎","🍊"];
 let g,score,moves,combo,sel=null,busy=false,anim=[],parts=[],pops=[],shake=0;
@@ -17,7 +46,7 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function swap(a,b,check=true){busy=true;const A=g[a[0]][a[1]],B=g[b[0]][b[1]];g[a[0]][a[1]]=B;g[b[0]][b[1]]=A;
  A.ox=(a[0]-b[0])*S;A.oy=(a[1]-b[1])*S;B.ox=-A.ox;B.oy=-A.oy;await wait(200);
  if(check){const m=find();if(!m.length){await swap(a,b,false);busy=false;return}moves--;combo=0;await resolve()}busy=false}
-async function resolve(){let m;while((m=find()).length){combo++;const pts=m.length*10*combo;score+=pts;shake=combo>1?6:2;
+async function resolve(){let m;while((m=find()).length){combo++;const pts=m.length*10*combo;score+=pts;shake=combo>1?6+Math.min(combo,5)*3:3;
   let cx=0,cy=0;for(const [i,j] of m){const cell=g[i][j];cell.dying=1;cx+=i;cy+=j;burst(i*S+S/2,j*S+S/2)}
   pops.push({t:(combo>1?`连击×${combo} `:"")+"+"+pts,x:cx/m.length*S+S/2,y:cy/m.length*S+S/2,l:1});
   await wait(250);for(const [i,j] of m)g[i][j]=null;
@@ -30,7 +59,7 @@ c.onpointerdown=e=>{if(busy||moves<=0)return;const r=c.getBoundingClientRect(),i
  if(sel&&Math.abs(sel[0]-i)+Math.abs(sel[1]-j)==1){const s=sel;sel=null;swap(s,[i,j]);down=null}else sel=[i,j]};
 c.onpointermove=e=>{if(!down||busy)return;const dx=e.clientX-down[2],dy=e.clientY-down[3];if(Math.hypot(dx,dy)>25){const [i,j]=down;let ni=i,nj=j;if(Math.abs(dx)>Math.abs(dy))ni+=Math.sign(dx);else nj+=Math.sign(dy);down=null;sel=null;if(ni>=0&&ni<N&&nj>=0&&nj<N)swap([i,j],[ni,nj])}};
 onpointerup=()=>down=null;document.getElementById("re").onclick=init;
-function draw(){x.save();x.clearRect(0,0,480,480);x.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.85;
+function draw(){x.save();x.clearRect(0,0,480,480);x.translate((Math.random()-.5)*shake*FX.shakeOn,(Math.random()-.5)*shake*FX.shakeOn);shake*=.85;
  for(let i=0;i<N;i++)for(let j=0;j<N;j++){x.fillStyle=(i+j)%2?"#ffffff18":"#ffffff30";x.fillRect(i*S,j*S,S,S)}
  x.textAlign="center";x.textBaseline="middle";
  for(let i=0;i<N;i++)for(let j=0;j<N;j++){const cell=g[i][j];if(!cell)continue;const ty=j*S;cell.y+=(ty-cell.y)*.25;if(Math.abs(ty-cell.y)<.5)cell.y=ty;
@@ -45,4 +74,5 @@ function draw(){x.save();x.clearRect(0,0,480,480);x.translate((Math.random()-.5)
  requestAnimationFrame(draw)}
 init();draw();
 if(new URLSearchParams(location.search).get("demo"))setTimeout(async()=>{outer:for(let i=0;i<N-1;i++)for(let j=0;j<N;j++){const a=[i,j],b=[i+1,j];const A=g[i][j],B=g[i+1][j];g[i][j]=B;g[i+1][j]=A;const ok=find().length;g[i][j]=A;g[i+1][j]=B;if(ok){swap(a,b);break outer}}},1200);
-</script></body></html>
+</script><script>/* 第 5 轮：挂载辉光与震屏 */FX.glowOf(document.getElementById("c"),{"op": 0.45, "filter": "brightness(.72) contrast(4.5) saturate(1.3)"});</script>
+</body></html>

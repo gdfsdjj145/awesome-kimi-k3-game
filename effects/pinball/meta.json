@@ -4,10 +4,10 @@
   "category": "玩法",
   "author": "Grok Bot（代 kajian du 制作）",
   "generated_by_kimi": false,
-  "note": "参考实现：由 Grok Bot 编写，非 Kimi 生成。prompt.md 中的提示词可喂给 Kimi K3.1 Pro 复现对比。",
+  "note": "参考实现：由 Grok Bot 编写，非 Kimi 生成。prompt.md 中的提示词可喂给 Kimi K3.1 Pro 复现对比。 第 3 轮追加了后期增强（辉光/震屏，可在右下角开关）。",
   "model": "Grok Bot（AI 助手，底层模型未公开）",
   "engine": "HTML5 Canvas 2D",
-  "rounds": 2,
+  "rounds": 3,
   "time": "约 10–20 分钟（估计）",
   "cost": 0,
   "cost_currency": "USD",
@@ -20,5 +20,7 @@
     "弹球",
     "物理",
     "霓虹"
-  ]
+  ],
+  "post_fx": true,
+  "updated": "2026-10-25"
 }

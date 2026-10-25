@@ -21,3 +21,12 @@
 
 - 第 1 轮：一次写完全部功能（初版种树概率约 7%）。
 - 第 2 轮：树太密挡住地形，把种树概率降到约 2.5%；加 `<link rel="icon" href="data:,">` 消除 favicon 404 报错。
+
+## 第 3 轮（后期增强：辉光 + 震屏）
+
+```
+Three.js 场景：用 EffectComposer（RenderPass → UnrealBloomPass → OutputPass）替换 renderer.render；Bloom 受同一个「✨辉光」开关控制（关闭时直接 renderer.render），连续低帧时把渲染像素比乘 0.8（下限 0.6），并在尺寸或像素比变化时同步 composer 尺寸。右下角同样有 FPS 与辉光/震屏开关（场景类没有震屏时机，震屏开关保留但不触发）。
+本效果的具体改动：加 UnrealBloom（强度 0.45、半径 0.4、阈值 0.82），夜晚的灯光与日出更有氛围。
+```
+
+- 第 3 轮：加 UnrealBloom（强度 0.45、半径 0.4、阈值 0.82），夜晚的灯光与日出更有氛围。 回归测试：1200×720 与 390×844（DPR 2）截图，控制台无错，原玩法与 ?demo=1 仍正常。

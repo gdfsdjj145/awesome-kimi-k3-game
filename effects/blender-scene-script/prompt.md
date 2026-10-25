@@ -17,3 +17,12 @@
 
 - 第 1 轮：按上方主提示词一次生成，自测截图与控制台无报错。
 - 第 2 轮（修改提示词）：「首次渲染画面是空的（手动设置的相机旋转没有对准营地）。改为在营地中心放一个空物体，相机加 Track To 约束对准它。」修改后 Blender 4.2.3 无界面实测渲染与 glTF 导出均成功。
+
+## 第 3 轮（后期增强：辉光 + 震屏）
+
+```
+Three.js 场景：用 EffectComposer（RenderPass → UnrealBloomPass → OutputPass）替换 renderer.render；Bloom 受同一个「✨辉光」开关控制（关闭时直接 renderer.render），连续低帧时把渲染像素比乘 0.8（下限 0.6），并在尺寸或像素比变化时同步 composer 尺寸。右下角同样有 FPS 与辉光/震屏开关（场景类没有震屏时机，震屏开关保留但不触发）。
+本效果的具体改动：Three.js 预览加 UnrealBloom（强度 0.7、阈值 0.7），篝火与火星更亮；.py 脚本、.glb 与 Blender 渲染图都不变。
+```
+
+- 第 3 轮：Three.js 预览加 UnrealBloom（强度 0.7、阈值 0.7），篝火与火星更亮；.py 脚本、.glb 与 Blender 渲染图都不变。 回归测试：1200×720 与 390×844（DPR 2）截图，控制台无错，原玩法与 ?demo=1 仍正常。
