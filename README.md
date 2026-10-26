@@ -2,7 +2,7 @@
 
 > 🎮 **友情链接：[gameskill.dev](https://gameskill.dev)** — 我们的游戏 Skill 项目。AI 游戏开发 Skill / MCP 合集见姐妹仓库 [awesome-game-skill](https://github.com/gdfsdjj145/awesome-game-skill)。
 
-**English summary:** A curated list of games, demos, skills, tutorials and benchmarks made with Moonshot **Kimi K3 / K3.1 / K3.1 Pro**. Every game entry is "one game" with model, engine, one-shot or not, time, cost, source post, and playable link / source code when available. Each item is tagged ✅ verified (we opened it and it runs) or 📣 promotional (official showcase, no reproducible code, or likely part of Kimi's creator campaign). Includes a uniform benchmark prompt set ([benchmarks/](benchmarks/)) and a placeholder for running the open weights locally (expected by 2026-11-04). The main body is in Chinese. List content is CC0.
+**English summary:** A curated list of games, demos, skills, tutorials and benchmarks made with Moonshot **Kimi K3 / K3.1 / K3.1 Pro**. Every game entry is "one game" with model, engine, one-shot or not, time, cost, source post, and playable link / source code when available. Each item is tagged ✅ verified (we opened it and it runs) or 📣 promotional (official showcase, no reproducible code, or likely part of Kimi's creator campaign). Includes a uniform benchmark prompt set ([benchmarks/](benchmarks/)) and a placeholder for running the open weights locally (expected by 2026-11-04). The main body is in Chinese. All original content in this repo (list, benchmarks/, effects/, gallery) is CC0 1.0; third-party games under games/ keep their own licenses.
 
 > 用 Kimi K3 / K3.1 / K3.1 Pro 做游戏的合集，**一个条目 = 一个游戏**。K3.1 Pro 于 2026-10-23 发布（北京时间 10-24 凌晨）：2.8T 总参 / 104B 激活 MoE，1M 上下文；API $2 输入 / $10 输出（每百万 tokens）；**开放权重预计 11 月 4 日前发布**。
 >
@@ -156,4 +156,4 @@
 
 ## License
 
-列表内容 [CC0 1.0](LICENSE)。`games/` 下的游戏沿用各自原始许可证。
+本仓库的原创内容（列表、`benchmarks/`、`effects/` 特效代码与提示词、画廊页面）全部采用 [CC0 1.0](LICENSE)。`games/` 下的第三方游戏沿用各自原始许可证。
