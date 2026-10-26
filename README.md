@@ -1,4 +1,6 @@
-# Awesome Kimi K3 Game [![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
+# Awesome Kimi K3 Game [![Awesome](https://awesome.re/badge.svg)](https://awesome.re) [![gameskill.dev](https://img.shields.io/badge/友情链接-gameskill.dev-ff6a00)](https://gameskill.dev)
+
+> 🎮 **友情链接：[gameskill.dev](https://gameskill.dev)** — 我们的游戏 Skill 项目。AI 游戏开发 Skill / MCP 合集见姐妹仓库 [awesome-game-skill](https://github.com/gdfsdjj145/awesome-game-skill)。
 
 **English summary:** A curated list of games, demos, skills, tutorials and benchmarks made with Moonshot **Kimi K3 / K3.1 / K3.1 Pro**. Every game entry is "one game" with model, engine, one-shot or not, time, cost, source post, and playable link / source code when available. Each item is tagged ✅ verified (we opened it and it runs) or 📣 promotional (official showcase, no reproducible code, or likely part of Kimi's creator campaign). Includes a uniform benchmark prompt set ([benchmarks/](benchmarks/)) and a placeholder for running the open weights locally (expected by 2026-11-04). The main body is in Chinese. List content is CC0.
 
@@ -18,7 +20,7 @@
 
 ## 目录
 
-- [官方资源](#官方资源) · [游戏作品与 Demo](#游戏作品与-demo) · [效果库](#效果库) · [GitHub 项目](#github-项目) · [Skill 与工作流](#skill-与工作流) · [教程与提示词](#教程与提示词) · [评测](#评测) · [社区讨论](#社区讨论) · [相关合集](#相关合集) · [待补充：本地运行做游戏](#待补充本地运行做游戏) · [统一测试题](benchmarks/README.md)
+- [官方资源](#官方资源) · [游戏作品与 Demo](#游戏作品与-demo) · [效果库](#效果库) · [GitHub 项目](#github-项目) · [Skill 与工作流](#skill-与工作流) · [教程与提示词](#教程与提示词) · [评测](#评测) · [社区讨论](#社区讨论) · [相关合集](#相关合集) · [友情链接](#友情链接) · [待补充：本地运行做游戏](#待补充本地运行做游戏) · [统一测试题](benchmarks/README.md)
 
 ## 官方资源
 
@@ -128,9 +130,15 @@
 
 ## 相关合集
 
+- [awesome-game-skill](https://github.com/gdfsdjj145/awesome-game-skill) - 姐妹仓库：AI 游戏开发 Agent Skill、MCP 与工具合集。
 - [awesome-kimi-k3-1-videos](https://github.com/yihui-dev/awesome-kimi-k3-1-videos) - 187 个 K3.1 作品视频，其中「Games & interactive experiences」30 个（8★）。
 - [awesome-kimi-k3.1-guide-and-use-cases](https://github.com/cheercheung/awesome-kimi-k3.1-guide-and-use-cases) - 83 个带来源的用例，11 种语言（5★）。
 - [awesome-Kimi-K3.1-pro-videos](https://github.com/mileson/awesome-Kimi-K3.1-pro-videos) - 视频、提示词与帧画廊。
+
+## 友情链接
+
+- 🎮 [**gameskill.dev**](https://gameskill.dev) — 我们的游戏 Skill 项目 / our game skill project
+- 🧰 [awesome-game-skill](https://github.com/gdfsdjj145/awesome-game-skill) — AI 游戏开发 Skill / MCP / 工具合集
 
 ## 待补充：本地运行做游戏
 
